@@ -41,35 +41,31 @@ function LogInPage() {
     e.preventDefault();
 
     if (validateForm()) {
-      try {
-        const response = await axios.post('http://127.0.0.1:5000/login', formData, {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
+        try {
+            const response = await axios.post('http://127.0.0.1:5000/login', formData, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
 
-        console.log('Login successful', response.data);
-        // Redirect to the HomePage with user info
-        navigate('/home', 
-          {state: 
-            { id: response.data.id, 
-              email: response.data.email, 
-              firstName: response.data.firstName,
-              lastName: response.data.lastName,
-              otherName: response.data.otherName,
-              userName: response.data.userName,
-              phoneNumber: response.data.phoneNumber,
-            } 
-          }
-        );
-      } catch (error) {
-        console.error('Error logging in:', error);
-        setLoginError('Invalid username or password');
-      }
+            console.log('Login successful', response.data);
+            
+            if (response.data.role === 'admin') {
+                
+                navigate('/admin');
+            } else if (response.data.role === 'doctor') {
+                
+                navigate(`/doctorDashboard`, { state: response.data });
+            }
+        } catch (error) {
+            console.error('Error logging in:', error);
+            setLoginError('Invalid username or password');
+        }
     } else {
-      console.log('Form validation failed', errors);
+        console.log('Form validation failed', errors);
     }
   };
+
 
   return (
     <div>
