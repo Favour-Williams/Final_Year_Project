@@ -5,9 +5,9 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 import LandingPage from './LandingPage.jsx'
 import LogInPage from './pages/LoginPage.jsx'
-import CreateUser from './pages/CreateUserPage.jsx'
-import AdminDashBoard from './pages/AdminDashBoard.jsx'
-import DoctorDashboard from './pages/DoctorDashBoard.jsx'
+// import CreateUser from './pages/CreateUserPage.jsx'
+// import AdminDashBoard from './pages/AdminDashBoard.jsx'
+// import DoctorDashboard from './pages/DoctorDashBoard.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -16,12 +16,12 @@ createRoot(document.getElementById('root')).render(
 
         <Route path='/' element={<LandingPage/>} />
         <Route path='/login' element={<LogInPage/>} />
-        <Route path='/createUser' element={<CreateUser/>} />
+        {/*<Route path='/createUser' element={<CreateUser/>} />
         <Route path='/admin' element={<AdminDashBoard/>} />
-        <Route path='/doctorDashboard' element={<DoctorDashboard/>} />
+        <Route path='/doctorDashboard' element={<DoctorDashboard/>} /> */}
 
-        {/* <Route path='/' element={<LandingPage/>} /> */}
+        
       </Routes>
     </BrowserRouter>
-  </StrictMode>,
+  </StrictMode>
 )
