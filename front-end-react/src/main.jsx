@@ -8,6 +8,10 @@ import LogInPage from './pages/LoginPage.jsx'
 import CreateUser from './pages/CreateUserPage.jsx'
 import AdminDashBoard from './pages/AdminDashBoard.jsx'
 import DoctorDashboard from './pages/DoctorDashBoard.jsx'
+import ViewDoctor from './pages/ViewDoctors.jsx'
+import TrainModel from './pages/subPages/TrainModel.jsx'
+import PredictImage from './pages/subPages/PredictXray.jsx'
+import SortFile from './pages/subPages/SortFile.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -18,8 +22,14 @@ createRoot(document.getElementById('root')).render(
         <Route path='/login' element={<LogInPage/>} />
         
         <Route path='/admin' element={<AdminDashBoard/>} />
-        <Route path='/createUser' element={<CreateUser/>} />
+        <Route path='/admin/createUser' element={<CreateUser/>} />
+        <Route path='/admin/view' element={<ViewDoctor/>} />
+        <Route path='/admin/train' element={<TrainModel/>} />
+
+
         <Route path='/doctorDashboard' element={<DoctorDashboard/>} /> 
+        <Route path='/doctorDashboard/predict' element={<PredictImage/>} />
+        <Route path='/doctorDashboard/sort' element={<SortFile/>} />
 
         
       </Routes>
