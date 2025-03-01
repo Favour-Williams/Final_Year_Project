@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Input from '../components/Inputs';
 import Button from '../components/Button';
@@ -30,13 +30,7 @@ function SignUpPage() {
             [e.target.name]: e.target.value
         });
     };
-    
-    const handleCheckboxChange = (e) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.checked,
-        });
-    };
+ 
 
     const validateForm = () => {
         let formErrors = {};

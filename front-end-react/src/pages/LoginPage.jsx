@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Input from '../components/Inputs';
 import Button from '../components/Button';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom'; // Import for navigation
+import { useNavigate, Link } from 'react-router-dom'; // Import for navigation
 
 function LogInPage() {
   const [formData, setFormData] = useState({
@@ -79,7 +79,9 @@ function LogInPage() {
         
         {loginError && <p style={{ color: 'red' }}>{loginError}</p>}
         
-        <p><a href="#">Forgot password</a></p>
+        <p className="forgot-password-link">
+          <Link to="/forgot-password">Forgot password?</Link>
+        </p>
         <Button text={"Log In"} type={"submit"} />
       </form>
     </div>

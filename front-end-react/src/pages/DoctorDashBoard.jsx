@@ -19,7 +19,8 @@ function DoctorPage() {
             <h1>Welcome Doctor </h1>
            <div>
                 <button onClick={handlePredictImage}>PredictImage</button>
-                <button onClick={handleSortFile}> Sort Folder</button>  
+                <button onClick={handleSortFile}> Sort Folder</button>
+                
            </div>
         </div>
     );

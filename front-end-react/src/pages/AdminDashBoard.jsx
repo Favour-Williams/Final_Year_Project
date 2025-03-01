@@ -25,6 +25,7 @@ function LandingPage() {
           <button onClick={handleCreateUser}>Create Doctor</button>  
           <button onClick={handleViewDoctor}>View Doctor</button>  
           <button onClick={handleTrainModel}>Train Model</button>  
+          <button></button>
         </div>
     </div>
   );
