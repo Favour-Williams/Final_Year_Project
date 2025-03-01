@@ -12,7 +12,10 @@ import tempfile
 import tensorflow as tf
 import numpy as np
 
+import datetime
 
+# Add these to your imports
+from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, send_file
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
@@ -54,6 +57,15 @@ class User(db.Model):
     phone_number = db.Column(db.String(15), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(120), nullable=False)
+with app.app_context():
+    db.create_all()
+class PasswordReset(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    token = db.Column(db.String(100), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime)
+    used = db.Column(db.Boolean, default=False)
 with app.app_context():
     db.create_all()
 
@@ -178,8 +190,216 @@ def create_user():
         return jsonify({
             'error': 'An error occurred while creating the user: ' + str(e)
         }), 500
+##########################################################################################################################
+# Route to get all doctors (non-admin users)
+@app.route('/api/doctors', methods=['GET'])
+def get_doctors():
+    try:
+        with get_db_session() as session:
+            doctors = session.query(User).filter(User.user_name != 'admin').all()
+            doctors_list = []
+            for doctor in doctors:
+                doctors_list.append({
+                    'id': doctor.id,
+                    'firstName': doctor.first_name,
+                    'lastName': doctor.last_name,
+                    'otherName': doctor.other_name,
+                    'userName': doctor.user_name,
+                    'phoneNumber': doctor.phone_number,
+                    'email': doctor.email
+                })
+            return jsonify(doctors_list), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Route to delete a user
+@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    try:
+        with get_db_session() as session:
+            user = session.query(User).get(user_id)
+            if not user:
+                return jsonify({'error': 'User not found'}), 404
+            
+            if user.user_name == 'admin':
+                return jsonify({'error': 'Cannot delete admin user'}), 403
+                
+            session.delete(user)
+            return jsonify({'message': 'User deleted successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Route to update a user
+@app.route('/api/users/<int:user_id>', methods=['PUT'])
+def update_user(user_id):
+    try:
+        data = request.get_json()
+        with get_db_session() as session:
+            user = session.query(User).get(user_id)
+            if not user:
+                return jsonify({'error': 'User not found'}), 404
+            
+            # Check if updating username or email to something that already exists
+            if data.get('userName') and data['userName'] != user.user_name:
+                existing_user = session.query(User).filter(User.user_name == data['userName']).first()
+                if existing_user:
+                    return jsonify({'error': 'Username already taken'}), 400
+                    
+            if data.get('email') and data['email'] != user.email:
+                existing_user = session.query(User).filter(User.email == data['email']).first()
+                if existing_user:
+                    return jsonify({'error': 'Email already registered'}), 400
+            
+            # Update user fields if provided in the request
+            if 'firstName' in data:
+                user.first_name = data['firstName']
+            if 'lastName' in data:
+                user.last_name = data['lastName']
+            if 'otherName' in data:
+                user.other_name = data['otherName']
+            if 'userName' in data:
+                user.user_name = data['userName']
+            if 'phoneNumber' in data:
+                user.phone_number = data['phoneNumber']
+            if 'email' in data:
+                user.email = data['email']
+            if 'password' in data and data['password'].strip():
+                user.password = data['password']
+                
+            return jsonify({
+                'message': 'User updated successfully',
+                'user': {
+                    'id': user.id,
+                    'firstName': user.first_name,
+                    'lastName': user.last_name,
+                    'otherName': user.other_name,
+                    'userName': user.user_name,
+                    'phoneNumber': user.phone_number,
+                    'email': user.email
+                }
+            }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/forgot-password', methods=['POST'])
+def forgot_password():
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        
+        if not email:
+            return jsonify({'error': 'Email is required'}), 400
+            
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            # Don't reveal whether the email exists for security
+            return jsonify({'message': 'If the email exists, a reset link will be sent'}), 200
+            
+        # Generate a unique token
+        token = str(uuid.uuid4())
+        
+        # Calculate expiration (24 hours from now)
+        expires_at = datetime.utcnow() + timedelta(hours=24)
+        
+        # Save the reset request
+        password_reset = PasswordReset(
+            user_id=user.id,
+            token=token,
+            expires_at=expires_at
+        )
+        
+        db.session.add(password_reset)
+        db.session.commit()
+        
+        # Create reset link
+        reset_link = f"http://localhost:5173/reset-password/{token}"
+        
+        # Send email with reset link
+        try:
+            msg = Message(
+                'Password Reset Request',
+                recipients=[email]
+            )
+            msg.body = f"""
+            Hello {user.first_name},
+            
+            You have requested to reset your password. Click the link below to set a new password:
+            {reset_link}
+            
+            This link will expire in 24 hours.
+            
+            If you did not request this password reset, please ignore this email.
+            """
+            mail.send(msg)
+        except Exception as e:
+            print(f"Error sending email: {str(e)}")
+            return jsonify({'error': 'Failed to send reset email'}), 500
+            
+        return jsonify({'message': 'If the email exists, a reset link will be sent'}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Route to validate token and reset password
+@app.route('/api/reset-password', methods=['POST'])
+def reset_password():
+    try:
+        data = request.get_json()
+        token = data.get('token')
+        new_password = data.get('newPassword')
+        
+        if not token or not new_password:
+            return jsonify({'error': 'Token and new password are required'}), 400
+            
+        # Find the reset request
+        reset_request = PasswordReset.query.filter_by(
+            token=token,
+            used=False
+        ).first()
+        
+        if not reset_request:
+            return jsonify({'error': 'Invalid or expired token'}), 400
+            
+        # Check if token is expired
+        if reset_request.expires_at < datetime.utcnow():
+            return jsonify({'error': 'Reset link has expired'}), 400
+            
+        # Get the user
+        user = User.query.get(reset_request.user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        # Update password
+        user.password = new_password
+        
+        # Mark token as used
+        reset_request.used = True
+        
+        db.session.commit()
+        
+        return jsonify({'message': 'Password has been reset successfully'}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Route to verify token validity (for frontend validation)
+@app.route('/api/verify-reset-token/<token>', methods=['GET'])
+def verify_reset_token(token):
+    try:
+        reset_request = PasswordReset.query.filter_by(
+            token=token,
+            used=False
+        ).first()
+        
+        if not reset_request or reset_request.expires_at < datetime.utcnow():
+     
+            return jsonify({'valid': False}), 200
+            
+        return jsonify({'valid': True}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 ##########################################################################################################################
 model = None
 def load_model():
