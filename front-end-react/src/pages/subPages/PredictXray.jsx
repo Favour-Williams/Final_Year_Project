@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import CorrectionButton from './CorrectionButton';
 
 export default function PredictXray() {
   const [file, setFile] = useState(null);
@@ -6,6 +7,9 @@ export default function PredictXray() {
   const [prediction, setPrediction] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  
+  // For demonstration purposes, assuming the logged-in doctor has an ID
+  const doctorId = "doctor_123"; // In a real app, this would come from authentication
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -110,6 +114,13 @@ export default function PredictXray() {
             <div className="mt-2 text-sm text-gray-600">
               Processed in {prediction.processing_time.toFixed(2)} seconds
             </div>
+            
+            {/* Add the correction button */}
+            <CorrectionButton 
+              imageData={previewUrl} 
+              prediction={prediction} 
+              doctorId={doctorId} 
+            />
           </div>
         )}
       </div>
