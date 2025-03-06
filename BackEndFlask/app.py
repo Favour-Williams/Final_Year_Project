@@ -11,9 +11,14 @@ import time
 import tempfile
 import tensorflow as tf
 import numpy as np
-
+import random
+import string
 import datetime
-
+import os
+import base64
+import json
+from datetime import datetime
+from werkzeug.utils import secure_filename
 # Add these to your imports
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, send_file
@@ -47,6 +52,10 @@ app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(BASE_DIR, "bon
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
+
+CORRECTIONS_FOLDER = os.path.join(BASE_DIR, "static/corrections")
+os.makedirs(CORRECTIONS_FOLDER, exist_ok=True)
+
 # User model to represent user data in the database
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -68,7 +77,19 @@ class PasswordReset(db.Model):
     used = db.Column(db.Boolean, default=False)
 with app.app_context():
     db.create_all()
+class ImageCorrection(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    image_id = db.Column(db.String(100), nullable=False)
+    doctor_id = db.Column(db.String(100), nullable=False)
+    original_prediction = db.Column(db.Boolean, nullable=False)
+    correction_type = db.Column(db.String(20), nullable=False)  # "fractured" or "no-fracture"
+    fracture_locations = db.Column(db.Text, nullable=True)  # JSON string of circle coordinates
+    image_path = db.Column(db.String(255), nullable=False)  # Path to the stored image
+    annotated_image_path = db.Column(db.String(255), nullable=True)  # Path to the annotated image (if applicable)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
+with app.app_context():
+    db.create_all()
 ##########################################################################################################################
 
 
@@ -124,73 +145,177 @@ def get_db_session():
     finally:
         session.close()
 
+# Function to generate a unique username
+def generate_unique_username(first_name, last_name):
+    base_username = f"{first_name.lower()}{last_name.lower()}"
+    username = base_username
+    counter = 1
+
+    while User.query.filter_by(user_name=username).first():
+        username = f"{base_username}{counter}"
+        counter += 1
+
+    return username
 # Update the create_user route
 @app.route('/admin/create-user', methods=['POST'])
 def create_user():
     try:
         data = request.get_json()
-        
-        with get_db_session() as session:
-            # Check if user exists
-            existing_user = session.query(User).filter(
-                (User.user_name == data['userName']) | 
-                (User.email == data['email'])
-            ).first()
-            
-            if existing_user:
-                return jsonify({
-                    'error': 'Username or email already exists'
-                }), 400
 
-            # Create new user
-            new_user = User(
-                first_name=data['firstName'],
-                last_name=data['lastName'],
-                other_name=data.get('otherName', ''),
-                user_name=data['userName'],
-                phone_number=data['phoneNumber'],
-                email=data['email'],
-                password=data['password']
+        # Check if user already exists
+        existing_user = User.query.filter(
+            (User.user_name == data.get('userName')) |
+            (User.email == data['email'])
+        ).first()
+
+        if existing_user:
+            return jsonify({'error': 'Username or email already exists'}), 400
+
+        # Generate unique username if not provided
+        user_name = data.get('userName') or generate_unique_username(data['firstName'], data['lastName'])
+
+        # Default password (hashed)
+        default_password = "1234567890"
+        hashed_password = generate_password_hash(default_password)
+
+        # Create new user
+        new_user = User(
+            first_name=data['firstName'],
+            last_name=data['lastName'],
+            other_name=data.get('otherName', ''),
+            user_name=user_name,
+            phone_number=data['phoneNumber'],
+            email=data['email'],
+            password=hashed_password
+        )
+
+        db.session.add(new_user)
+        db.session.commit()
+
+        # Get new user ID
+        user_id = new_user.id
+
+        # Send welcome email
+        try:
+            msg = Message(
+                'Welcome to the System',
+                recipients=[data['email']]
             )
-            
-            session.add(new_user)
-            session.commit()
-            
-            # Get the new user's ID
-            user_id = new_user.id
+            msg.body = f"""
+            Welcome {data['firstName']} {data['lastName']},
 
-            # Send welcome email
-            try:
-                msg = Message(
-                    'Welcome to the System',
-                    recipients=[data['email']]
-                )
-                msg.body = f"""
-                Welcome {data['firstName']} {data['lastName']},
-                
-                Your account has been created by an administrator.
-                Your login credentials are:
-                Username: {data['userName']}
-                Password: {data['password']}
-                
-                Please change your password after your first login.
-                """
-                mail.send(msg)
-            except Exception as e:
-                print(f"Error sending email: {str(e)}")
+            Your account has been created by an administrator.
+            Your login credentials are:
+            Username: {user_name}
+            Password: {default_password}
 
-            return jsonify({
-                'message': 'User created successfully',
-                'userId': user_id
-            }), 201
-            
+            Please change your password after your first login.
+            """
+            mail.send(msg)
+        except Exception as e:
+            print(f"Error sending email: {str(e)}")
+
+        return jsonify({'message': 'User created successfully', 'userId': user_id}), 201
+
     except Exception as e:
         print("Error details:", str(e))
         print(traceback.format_exc())
-        return jsonify({
-            'error': 'An error occurred while creating the user: ' + str(e)
-        }), 500
+        return jsonify({'error': 'An error occurred while creating the user: ' + str(e)}), 500
+
 ##########################################################################################################################
+@app.route('/submit-correction', methods=['POST'])
+def submit_correction():
+    try:
+        data = request.json
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+            
+        # Required fields
+        image_id = data.get('imageId')
+        doctor_id = data.get('doctorId')
+        original_prediction = data.get('originalPrediction', {})
+        correction_type = data.get('correctionType')
+        circles = data.get('circles', [])
+        image_data = data.get('imageData')  # Base64 encoded image
+        annotated_image_data = data.get('annotatedImageData')  # Base64 encoded annotated image
+        
+        # Validation
+        if not image_id or not doctor_id or not correction_type or not image_data:
+            return jsonify({'error': 'Missing required fields'}), 400
+        
+        # Create timestamp-based unique folder for this correction
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        correction_dir = os.path.join(CORRECTIONS_FOLDER, f"{doctor_id}_{timestamp}")
+        os.makedirs(correction_dir, exist_ok=True)
+        
+        # Save original image
+        try:
+            # Remove data URL prefix if present (e.g., "data:image/jpeg;base64,")
+            if ',' in image_data:
+                image_data = image_data.split(',')[1]
+            
+            image_bytes = base64.b64decode(image_data)
+            image_filename = f"original_{secure_filename(str(image_id))}.png"
+            image_path = os.path.join(correction_dir, image_filename)
+            
+            with open(image_path, 'wb') as f:
+                f.write(image_bytes)
+                
+            relative_image_path = os.path.relpath(image_path, BASE_DIR)
+        except Exception as e:
+            app.logger.error(f"Error saving original image: {str(e)}")
+            return jsonify({'error': f'Failed to save image: {str(e)}'}), 500
+        
+        # Save annotated image if provided
+        annotated_image_path = None
+        if annotated_image_data:
+            try:
+                # Remove data URL prefix if present
+                if ',' in annotated_image_data:
+                    annotated_image_data = annotated_image_data.split(',')[1]
+                
+                annotated_bytes = base64.b64decode(annotated_image_data)
+                annotated_filename = f"annotated_{secure_filename(str(image_id))}.png"
+                annotated_path = os.path.join(correction_dir, annotated_filename)
+                
+                with open(annotated_path, 'wb') as f:
+                    f.write(annotated_bytes)
+                    
+                annotated_image_path = os.path.relpath(annotated_path, BASE_DIR)
+            except Exception as e:
+                app.logger.error(f"Error saving annotated image: {str(e)}")
+                # Continue even if annotated image fails - we still have the original
+        
+        # Convert circles to JSON string if present
+        fracture_locations = json.dumps(circles) if circles else None
+        
+        # Create new correction record
+        correction = ImageCorrection(
+            image_id=image_id,
+            doctor_id=doctor_id,
+            original_prediction=original_prediction.get('fracture_detected', False),
+            correction_type=correction_type,
+            fracture_locations=fracture_locations,
+            image_path=relative_image_path,
+            annotated_image_path=annotated_image_path,
+            timestamp=datetime.utcnow()
+        )
+        
+        # Save to database
+        db.session.add(correction)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Correction submitted successfully. Thank you for your feedback!',
+            'correction_id': correction.id
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error in submit_correction: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 # Route to get all doctors (non-admin users)
 @app.route('/api/doctors', methods=['GET'])
 def get_doctors():
