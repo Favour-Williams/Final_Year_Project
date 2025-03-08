@@ -18,6 +18,13 @@ function ResetPassword() {
   const [tokenValid, setTokenValid] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    number: false,
+    special: false
+  });
 
   // Verify token on component mount
   useEffect(() => {
@@ -41,6 +48,18 @@ function ResetPassword() {
     }
   }, [token]);
 
+  // Check password strength as user types
+  useEffect(() => {
+    const password = formData.newPassword;
+    setPasswordStrength({
+      length: password.length >= 8,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      number: /[0-9]/.test(password),
+      special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    });
+  }, [formData.newPassword]);
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -52,12 +71,30 @@ function ResetPassword() {
     let formErrors = {};
     let isValid = true;
 
+    // Password validation
     if (!formData.newPassword) {
       formErrors.newPassword = 'New password is required';
       isValid = false;
-    } else if (formData.newPassword.length < 6) {
-      formErrors.newPassword = 'Password must be at least 6 characters';
-      isValid = false;
+    } else {
+      // Check password requirements
+      const { length, uppercase, lowercase, number, special } = passwordStrength;
+      
+      if (!length) {
+        formErrors.newPassword = 'Password must be at least 8 characters';
+        isValid = false;
+      } else if (!uppercase) {
+        formErrors.newPassword = 'Password must contain at least one uppercase letter';
+        isValid = false;
+      } else if (!lowercase) {
+        formErrors.newPassword = 'Password must contain at least one lowercase letter';
+        isValid = false;
+      } else if (!number) {
+        formErrors.newPassword = 'Password must contain at least one number';
+        isValid = false;
+      } else if (!special) {
+        formErrors.newPassword = 'Password must contain at least one special character';
+        isValid = false;
+      }
     }
 
     if (!formData.confirmPassword) {
@@ -88,7 +125,7 @@ function ResetPassword() {
         
         // Redirect to login after 3 seconds
         setTimeout(() => {
-          navigate('/');
+          navigate('/login');
         }, 3000);
         
       } catch (err) {
@@ -101,6 +138,34 @@ function ResetPassword() {
       }
     }
   };
+
+  // Function to render password strength indicators
+  const renderPasswordStrengthIndicators = () => {
+    const { length, uppercase, lowercase, number, special } = passwordStrength;
+    
+    return (
+      <div className="password-requirements">
+        <p>Password must have:</p>
+        <ul>
+          <li className={length ? "requirement-met" : "requirement"}>
+            At least 8 characters
+          </li>
+          <li className={uppercase ? "requirement-met" : "requirement"}>
+            At least 1 uppercase letter
+          </li>
+          <li className={lowercase ? "requirement-met" : "requirement"}>
+            At least 1 lowercase letter
+          </li>
+          <li className={number ? "requirement-met" : "requirement"}>
+            At least 1 number
+          </li>
+          <li className={special ? "requirement-met" : "requirement"}>
+            At least 1 special character
+          </li>
+        </ul>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -158,6 +223,7 @@ function ResetPassword() {
             onChange={handleChange} 
           />
           {errors.newPassword && <p className="error-message">{errors.newPassword}</p>}
+          {formData.newPassword && renderPasswordStrengthIndicators()}
         </div>
         
         <div className="form-group">

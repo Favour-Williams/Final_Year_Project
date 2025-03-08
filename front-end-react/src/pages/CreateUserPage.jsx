@@ -17,13 +17,19 @@ function SignUpPage() {
 
     const [errors, setErrors] = useState({});
 
-    // Automatically generate username when firstName or lastName changes
+    // Generate username when lastName changes (first 4 letters + random numbers)
     useEffect(() => {
-        if (formData.firstName && formData.lastName) {
-            let generatedUserName = `${formData.firstName.toLowerCase()}${formData.lastName.toLowerCase()}`;
+        if (formData.lastName) {
+            // Get first 4 letters of last name (or fewer if last name is shorter)
+            const lastNamePrefix = formData.lastName.substring(0, 4).toLowerCase();
+            
+            // Generate 4 random numbers
+            const randomNumbers = Math.floor(1000 + Math.random() * 9000); // Ensures 4 digits
+            
+            const generatedUserName = `${lastNamePrefix}${randomNumbers}`;
             setFormData((prev) => ({ ...prev, userName: generatedUserName }));
         }
-    }, [formData.firstName, formData.lastName]);
+    }, [formData.lastName]);
 
     const handleChange = (e) => {
         setFormData({
@@ -163,8 +169,6 @@ function SignUpPage() {
                     onChange={handleChange}
                 />
                 {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
-
-                {/* Remove password fields since they are auto-set */}
                 
                 <Button text="Create User" type="submit" />
             </form>

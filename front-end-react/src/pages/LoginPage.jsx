@@ -12,7 +12,7 @@ function LogInPage() {
   });
   const [errors, setErrors] = useState({});
   const [loginError, setLoginError] = useState('');
-  const navigate = useNavigate(); // Hook for navigation
+  const navigate = useNavigate(); 
 
   const handleChange = (e) => {
     setFormData({
@@ -50,6 +50,7 @@ function LogInPage() {
             });
 
             console.log('Login successful', response.data);
+            localStorage.setItem('userId', response.data.id);
             
             if (response.data.role === 'admin') {
                 
