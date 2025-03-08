@@ -14,6 +14,7 @@ import ViewDoctor from './pages/ViewDoctors.jsx'
 import TrainModel from './pages/subPages/TrainModel.jsx'
 import PredictImage from './pages/subPages/PredictXray.jsx'
 import SortFile from './pages/subPages/SortFile.jsx'
+import ExtractCorrectImages from './pages/subPages/ExtractCorrectImages.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -29,6 +30,7 @@ createRoot(document.getElementById('root')).render(
         <Route path='/admin/createUser' element={<CreateUser/>} />
         <Route path='/admin/view' element={<ViewDoctor/>} />
         <Route path='/admin/train' element={<TrainModel/>} />
+        <Route path='/admin/extract' element={<ExtractCorrectImages/>} />
 
 
         <Route path='/doctorDashboard' element={<DoctorDashboard/>} /> 
