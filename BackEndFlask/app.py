@@ -15,6 +15,7 @@ import random
 import string
 import datetime
 import os
+import re
 import base64
 import json
 from datetime import datetime
@@ -118,7 +119,7 @@ def login():
 
         user = User.query.filter_by(user_name=username).first()
 
-        if user and user.password == password:  # Directly comparing plain text password
+        if user and check_password_hash(user.password, password):  # Use check_password_hash instead
             # Password is correct, send back user details with role
             return jsonify({
                 'id': user.id,
@@ -131,6 +132,28 @@ def login():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/users/<int:user_id>', methods=['GET'])
+def get_user(user_id):
+    try:
+        user = User.query.get(user_id)
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        # Return user data excluding password
+        return jsonify({
+            'id': user.id,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'other_name': user.other_name,
+            'user_name': user.user_name,
+            'phone_number': user.phone_number,
+            'email': user.email
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
 
 ##########################################################################################################################
 @contextmanager
@@ -146,38 +169,45 @@ def get_db_session():
         session.close()
 
 # Function to generate a unique username
-def generate_unique_username(first_name, last_name):
-    base_username = f"{first_name.lower()}{last_name.lower()}"
-    username = base_username
-    counter = 1
+def generate_unique_username(last_name):
+    # Get first 4 letters of last name (or fewer if last name is shorter)
+    last_name_prefix = last_name.lower()[:4]
+    
+    # Generate a username with random numbers
+    while True:
+        # Generate 4 random numbers
+        random_numbers = ''.join(random.choices(string.digits, k=4))
+        
+        # Combine prefix and random numbers
+        username = f"{last_name_prefix}{random_numbers}"
+        
+        # Check if username exists
+        if not User.query.filter_by(user_name=username).first():
+            return username
 
-    while User.query.filter_by(user_name=username).first():
-        username = f"{base_username}{counter}"
-        counter += 1
-
-    return username
 # Update the create_user route
 @app.route('/admin/create-user', methods=['POST'])
 def create_user():
     try:
         data = request.get_json()
-
+        
         # Check if user already exists
         existing_user = User.query.filter(
-            (User.user_name == data.get('userName')) |
             (User.email == data['email'])
         ).first()
-
+        
         if existing_user:
-            return jsonify({'error': 'Username or email already exists'}), 400
-
-        # Generate unique username if not provided
-        user_name = data.get('userName') or generate_unique_username(data['firstName'], data['lastName'])
-
+            return jsonify({'error': 'Email already exists'}), 400
+        
+        # Generate unique username if not provided or if provided username already exists
+        user_name = data.get('userName')
+        if not user_name or User.query.filter_by(user_name=user_name).first():
+            user_name = generate_unique_username(data['lastName'])
+        
         # Default password (hashed)
         default_password = "1234567890"
         hashed_password = generate_password_hash(default_password)
-
+        
         # Create new user
         new_user = User(
             first_name=data['firstName'],
@@ -188,13 +218,13 @@ def create_user():
             email=data['email'],
             password=hashed_password
         )
-
+        
         db.session.add(new_user)
         db.session.commit()
-
+        
         # Get new user ID
         user_id = new_user.id
-
+        
         # Send welcome email
         try:
             msg = Message(
@@ -203,20 +233,20 @@ def create_user():
             )
             msg.body = f"""
             Welcome {data['firstName']} {data['lastName']},
-
+            
             Your account has been created by an administrator.
             Your login credentials are:
             Username: {user_name}
             Password: {default_password}
-
+            
             Please change your password after your first login.
             """
             mail.send(msg)
         except Exception as e:
             print(f"Error sending email: {str(e)}")
-
+        
         return jsonify({'message': 'User created successfully', 'userId': user_id}), 201
-
+    
     except Exception as e:
         print("Error details:", str(e))
         print(traceback.format_exc())
@@ -389,7 +419,7 @@ def update_user(user_id):
             if 'email' in data:
                 user.email = data['email']
             if 'password' in data and data['password'].strip():
-                user.password = data['password']
+                user.password = generate_password_hash(data['password'])
                 
             return jsonify({
                 'message': 'User updated successfully',
@@ -477,6 +507,22 @@ def reset_password():
         if not token or not new_password:
             return jsonify({'error': 'Token and new password are required'}), 400
             
+        # Validate password complexity on the server side as well
+        if len(new_password) < 8:
+            return jsonify({'error': 'Password must be at least 8 characters long'}), 400
+            
+        if not re.search(r'[A-Z]', new_password):
+            return jsonify({'error': 'Password must contain at least one uppercase letter'}), 400
+            
+        if not re.search(r'[a-z]', new_password):
+            return jsonify({'error': 'Password must contain at least one lowercase letter'}), 400
+            
+        if not re.search(r'[0-9]', new_password):
+            return jsonify({'error': 'Password must contain at least one number'}), 400
+            
+        if not re.search(r'[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?]', new_password):
+            return jsonify({'error': 'Password must contain at least one special character'}), 400
+            
         # Find the reset request
         reset_request = PasswordReset.query.filter_by(
             token=token,
@@ -495,8 +541,11 @@ def reset_password():
         if not user:
             return jsonify({'error': 'User not found'}), 404
             
-        # Update password
-        user.password = new_password
+        # Hash the password before storing
+        hashed_password = generate_password_hash(new_password)
+        
+        # Update password with hashed version
+        user.password = hashed_password
         
         # Mark token as used
         reset_request.used = True
