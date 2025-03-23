@@ -3,9 +3,13 @@ import tensorflow as tf
 import numpy as np
 import cv2
 import os
-from tensorflow.keras import layers, models
-from sklearn.metrics import classification_report, roc_auc_score
+from tensorflow.keras import layers, models, Model
+from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from sklearn.metrics import classification_report, roc_auc_score
+
+# /////////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////////
 
 
 def load_data(data_dir):
@@ -19,41 +23,69 @@ def load_data(data_dir):
     images = []
     labels = []
     
-
     for label, folder in enumerate(["non_fractured", "fractured"]):  # 0: non-fractured, 1: fractured
         folder_path = os.path.join(data_dir, folder)
         for img_file in os.listdir(folder_path):
             img_path = os.path.join(folder_path, img_file)
             image = cv2.imread(img_path)
             if image is not None:
-                image = cv2.resize(image, (128, 128))  # Resize to match the model input size
+                image = cv2.resize(image, (224, 224))  # Resize to match MobileNetV2 input size
                 images.append(image / 255.0)  # Normalize
                 labels.append(label)
 
     return np.array(images), np.array(labels)
 
 
-def build_model(input_shape=(128, 128, 3)):
-    model = models.Sequential([
-        layers.Conv2D(32, (3, 3), activation='relu', input_shape=input_shape),
-        layers.MaxPooling2D((2, 2)),
+# /////////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////////
 
-        layers.Conv2D(64, (3, 3), activation='relu'),
-        layers.MaxPooling2D((2, 2)),
+def build_model(input_shape=(224, 224, 3)):
+    """
+    Build a fracture detection model using MobileNetV2 as the base model
+    Returns both the full model and the feature extraction model
+    """
+    # Load the MobileNetV2 model without the top classification layer
+    base_model = MobileNetV2(input_shape=input_shape, include_top=False, weights='imagenet')
+    
+    # Freeze the base model layers to use pre-trained weights
+    base_model.trainable = False
+    
+    # Get the input
+    inputs = tf.keras.Input(shape=input_shape)
+    
+    # Pass inputs through base model
+    x = base_model(inputs, training=False)
+    
+    # Add global average pooling to reduce dimensions
+    feature_map = x
+    x = layers.GlobalAveragePooling2D()(feature_map)
+    
+    # Add fully-connected layers
+    x = layers.Dense(128, activation='relu')(x)
+    x = layers.Dropout(0.5)(x)
+    
+    # Add the prediction layer
+    outputs = layers.Dense(1, activation='sigmoid')(x)
+    
+    # Create the full model
+    model = Model(inputs=inputs, outputs=outputs)
+    
+    # Create a feature extraction model for localization
+    feature_model = Model(inputs=model.inputs, outputs=feature_map)
+    
+    model.compile(
+        optimizer='adam',
+        loss='binary_crossentropy',
+        metrics=['accuracy']
+    )
+    
+    return model, feature_model
 
-        layers.Conv2D(128, (3, 3), activation='relu'),
-        layers.MaxPooling2D((2, 2)),
-        
-        layers.Flatten(),
-        layers.Dense(128, activation='relu'),
-        layers.Dropout(0.5),
-        layers.Dense(1, activation='sigmoid')  # Binary classification output
-    ])
-    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-    return model
 
+# /////////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////////
 
-def train_cnn(model, train_dataset, epochs=10, batch_size=32):
+def train_cnn(model, train_dataset, epochs, batch_size, callbacks=None):
     images, labels = train_dataset
     
     # Initialize ImageDataGenerator with augmentation parameters
@@ -71,11 +103,41 @@ def train_cnn(model, train_dataset, epochs=10, batch_size=32):
     datagen.fit(images)
     
     # Use the generator to augment the data during training
-    model.fit(
+    history = model.fit(
         datagen.flow(images, labels, batch_size=batch_size), 
         epochs=epochs,
-        steps_per_epoch=len(images) // batch_size
+        steps_per_epoch=len(images) // batch_size,
+        callbacks=callbacks  # Add the callbacks parameter here
     )
+    
+    # After initial training, fine-tune the model by unfreezing some layers
+    if epochs >= 5:
+        print("Fine-tuning the model...")
+        # Unfreeze the last few layers of the MobileNetV2 model
+        base_model = model.layers[1]  # Get the base model layer
+        for layer in base_model.layers[-20:]:
+            layer.trainable = True
+        
+        # Recompile with a lower learning rate
+        model.compile(
+            optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5),
+            loss='binary_crossentropy',
+            metrics=['accuracy']
+        )
+        
+        # Continue training with a lower learning rate
+        model.fit(
+            datagen.flow(images, labels, batch_size=batch_size),
+            epochs=3,
+            steps_per_epoch=len(images) // batch_size,
+            callbacks=callbacks  # Add the callbacks parameter here too
+        )
+    
+    return history
+
+# /////////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////////
+
 
 def evaluate_cnn(model, test_dataset):
     images, labels = test_dataset
@@ -84,42 +146,26 @@ def evaluate_cnn(model, test_dataset):
     print(f"Test Accuracy: {accuracy}")
 
 
-if __name__ == "__main__":
-    start_time = time.time()
-
-    # Load data
-    print("Loading training data...")
-    train_dataset = load_data('archive/BoneFractureDataset/training')
-    test_dataset = load_data('archive/BoneFractureDataset/testing')
-
-    end_time = time.time()
-    print(f"Total data loading time: {end_time - start_time} seconds")
-
-    start_time2 = time.time()
-    # Initialize model using the build_model function
-    cnn_model = build_model()
-    end_time2 = time.time()
-    print(f"Model initialization time: {end_time2 - start_time2} seconds")
-
-    start_time3 = time.time()
-    # Train the CNN model
-    print("Training the model...")
-    train_cnn(cnn_model, train_dataset, epochs=10)
-    end_time3 = time.time()
-    print(f"Training time: {end_time3 - start_time3} seconds")
-
-    start_time4 = time.time()
-    print("TESTING")
-    # Evaluate the CNN model on the test data
-    evaluate_cnn(cnn_model, test_dataset)
-    end_time4 = time.time()
-    print(f"Evaluating: {end_time4 - start_time4} seconds")
-
-    # Save the trained model to a file (e.g., 'bone_fracture_detection_model_v2.keras')
-    cnn_model.save('bone_fracture_detection_model_v3.h5')
-
-    print("Model saved successfully.")
-
-    predictions = (cnn_model.predict(test_dataset[0]) > 0.5).astype(int)
-    print(classification_report(test_dataset[1], predictions, target_names=["Non-Fractured", "Fractured"]))
-    print("AUC-ROC:", roc_auc_score(test_dataset, predictions))
+def generate_heatmap(img, feature_model, last_conv_layer_weights):
+    """
+    Generate a heatmap highlighting the fracture areas using Grad-CAM principles
+    """
+    # Get feature map from the feature extraction model
+    feature_maps = feature_model.predict(img)[0]
+    
+    # Create weighted sum of feature maps
+    heatmap = np.zeros(feature_maps.shape[0:2])
+    for i, w in enumerate(last_conv_layer_weights):
+        heatmap += w * feature_maps[:, :, i]
+    
+    # Apply ReLU to focus on features that have a positive influence
+    heatmap = np.maximum(heatmap, 0)
+    
+    # Normalize heatmap
+    if np.max(heatmap) > 0:
+        heatmap = heatmap / np.max(heatmap)
+    
+    # Resize heatmap to image size
+    heatmap = cv2.resize(heatmap, (img.shape[2], img.shape[1]))
+    
+    return heatmap
