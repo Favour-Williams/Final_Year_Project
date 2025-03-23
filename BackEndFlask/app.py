@@ -8,7 +8,6 @@ import cv2
 import traceback
 import sqlite3
 import time
-import tempfile
 import tensorflow as tf
 import numpy as np
 import random
@@ -19,26 +18,34 @@ import re
 import base64
 import json
 from datetime import datetime
+from tempfile import mkdtemp
 from werkzeug.utils import secure_filename
 # Add these to your imports
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, Blueprint
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_mail import Mail, Message
 from contextlib import contextmanager
 from werkzeug.utils import secure_filename
-from model.cnnModel import build_model
+from model.cnnModel import build_model, generate_heatmap, train_cnn, evaluate_cnn, load_data
 from model.predictImage import predict_image
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 
+from threading import Thread
+from sklearn.metrics import precision_recall_fscore_support, confusion_matrix, accuracy_score
+import matplotlib.pyplot as plt
+import io
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
+from sklearn.metrics import precision_score, recall_score, f1_score
 # Initialize the Flask app
 app = Flask(__name__)
 
 # Mail configuration
-CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
+CORS(app, resources={r"/*": {"origins": ["http://localhost:5173", "http://127.0.0.1:5173", "http://127.0.0.1:5000"]}})
+
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'  
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
@@ -53,7 +60,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(BASE_DIR, "bon
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-
+app.config['SECRET_KEY'] = 'your-secret-key'
 CORRECTIONS_FOLDER = os.path.join(BASE_DIR, "static/corrections")
 os.makedirs(CORRECTIONS_FOLDER, exist_ok=True)
 
@@ -92,6 +99,59 @@ class ImageCorrection(db.Model):
 with app.app_context():
     db.create_all()
 ##########################################################################################################################
+
+
+class ModelTraining(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    epochs = db.Column(db.Integer, nullable=False)
+    accuracy = db.Column(db.Float)
+    loss = db.Column(db.Float)
+    precision = db.Column(db.Float)
+    recall = db.Column(db.Float)
+    f1_score = db.Column(db.Float)
+    training_time = db.Column(db.Float)
+    model_path = db.Column(db.String(255))
+    is_active = db.Column(db.Boolean, default=False)
+    accuracy_history = db.Column(db.Text)  # Stored as JSON string
+    loss_history = db.Column(db.Text)  # Stored as JSON string
+    val_accuracy_history = db.Column(db.Text)  # Stored as JSON string
+    val_loss_history = db.Column(db.Text)  # Stored as JSON string
+    precision_history = db.Column(db.Text)  # Stored as JSON string
+    recall_history = db.Column(db.Text)  # Stored as JSON string
+    f1_history = db.Column(db.Text)  # Stored as JSON string
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'timestamp': self.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+            'epochs': self.epochs,
+            'accuracy': round(self.accuracy, 4) if self.accuracy else None,
+            'loss': round(self.loss, 4) if self.loss else None,
+            'precision': round(self.precision, 4) if self.precision else None,
+            'recall': round(self.recall, 4) if self.recall else None,
+            'f1_score': round(self.f1_score, 4) if self.f1_score else None,
+            'training_time': round(self.training_time, 2) if self.training_time else None,
+            'model_path': self.model_path,
+            'is_active': self.is_active,
+            'accuracy_history': json.loads(self.accuracy_history) if self.accuracy_history else None,
+            'loss_history': json.loads(self.loss_history) if self.loss_history else None,
+            'val_accuracy_history': json.loads(self.val_accuracy_history) if self.val_accuracy_history else None,
+            'val_loss_history': json.loads(self.val_loss_history) if self.val_loss_history else None,
+            'precision_history': json.loads(self.precision_history) if self.precision_history else None,
+            'recall_history': json.loads(self.recall_history) if self.recall_history else None,
+            'f1_history': json.loads(self.f1_history) if self.f1_history else None
+        }
+
+# Ensure database tables are created
+with app.app_context():
+    db.create_all()
+
+
+
+# Route to upload file chunks
+
+
 
 
 # Route for home
@@ -184,7 +244,9 @@ def generate_unique_username(last_name):
         # Check if username exists
         if not User.query.filter_by(user_name=username).first():
             return username
+        
 
+##########################################################################################################################
 # Update the create_user route
 @app.route('/admin/create-user', methods=['POST'])
 def create_user():
@@ -345,7 +407,59 @@ def submit_correction():
     except Exception as e:
         app.logger.error(f"Error in submit_correction: {str(e)}")
         return jsonify({'error': str(e)}), 500
+    
+##########################################################################################################################
+# Add this route to your Flask app to fetch all corrections
+@app.route('/corrections', methods=['GET'])
+def get_corrections():
+    try:
+        # Query all image corrections from the database
+        corrections = ImageCorrection.query.order_by(ImageCorrection.timestamp.desc()).all()
+        
+        # Convert to list of dictionaries
+        corrections_list = []
+        for correction in corrections:
+            correction_data = {
+                'id': correction.id,
+                'image_id': correction.image_id,
+                'doctor_id': correction.doctor_id,
+                'original_prediction': correction.original_prediction,
+                'correction_type': correction.correction_type,
+                'image_path': correction.image_path,
+                'annotated_image_path': correction.annotated_image_path,
+                'timestamp': correction.timestamp.isoformat()
+            }
+            
+            # Include fracture locations if available
+            if correction.fracture_locations:
+                correction_data['fracture_locations'] = json.loads(correction.fracture_locations)
+                
+            corrections_list.append(correction_data)
+            
+        return jsonify(corrections_list)
+        
+    except Exception as e:
+        app.logger.error(f"Error fetching corrections: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
+# Route to serve images from the stored paths
+@app.route('/images/<path:image_path>', methods=['GET'])
+def serve_image(image_path):
+    try:
+        # Construct the full path
+        full_path = os.path.join(BASE_DIR, image_path)
+        
+        # Verify the path is within the allowed directory (security check)
+        if not os.path.abspath(full_path).startswith(os.path.abspath(BASE_DIR)):
+            return jsonify({'error': 'Access denied'}), 403
+            
+        return send_file(full_path)
+        
+    except Exception as e:
+        app.logger.error(f"Error serving image: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+    
+##########################################################################################################################
 # Route to get all doctors (non-admin users)
 @app.route('/api/doctors', methods=['GET'])
 def get_doctors():
@@ -367,6 +481,7 @@ def get_doctors():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+##########################################################################################################################
 # Route to delete a user
 @app.route('/api/users/<int:user_id>', methods=['DELETE'])
 def delete_user(user_id):
@@ -383,7 +498,8 @@ def delete_user(user_id):
             return jsonify({'message': 'User deleted successfully'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
+    
+##########################################################################################################################
 # Route to update a user
 @app.route('/api/users/<int:user_id>', methods=['PUT'])
 def update_user(user_id):
@@ -436,7 +552,7 @@ def update_user(user_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
+##########################################################################################################################
 @app.route('/api/forgot-password', methods=['POST'])
 def forgot_password():
     try:
@@ -575,66 +691,158 @@ def verify_reset_token(token):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 ##########################################################################################################################
+MODEL_PATH = "bone_fracture_detection_mobilenet_v222.h5"
 model = None
-def load_model():
-    global model
-    if model is None:
-        print("Loading X-ray prediction model...")
-        model = build_model(input_shape=(128, 128, 3))
-        model.load_weights('bone_fracture_detection_model_v3.h5')
-        print("Model loaded successfully")
-    return model
+feature_model = None
+def load_models():
+    global model, feature_model
+    if os.path.exists(MODEL_PATH):
+        # Load the saved model
+        model = tf.keras.models.load_model(MODEL_PATH)
+        # Recreate the feature model
+        input_shape = model.input_shape[1:4]
+        _, feature_model = build_model(input_shape)
+        # Copy weights from the loaded model to the feature model
+        for i, layer in enumerate(model.layers):
+            if i < len(feature_model.layers):
+                feature_model.layers[i].set_weights(layer.get_weights())
+    else:
+        # If model doesn't exist, create and train new models (simplified here)
+        model, feature_model = build_model()
+        print("Warning: Pre-trained model not found. Using untrained model.")
+
+# Load models at startup
+load_models()
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    try:
-        # Check if an image was uploaded
-        if 'xray_image' not in request.files:
-            return jsonify({'error': 'No image uploaded'}), 400
-        
-        file = request.files['xray_image']
-        if file.filename == '':
-            return jsonify({'error': 'No image selected'}), 400
-        
-        # Create a temporary file to save the uploaded image
-        start_time = time.time()
-        temp_dir = tempfile.mkdtemp()
-        temp_path = os.path.join(temp_dir, secure_filename(file.filename))
-        file.save(temp_path)
-        
-        # Load the model if not already loaded
-        model = load_model()
-        
-        # Process image and get prediction
-        # Modified predict_image function to return prediction values instead of printing
-        # import cv2
-        image = cv2.imread(temp_path)
-        if image is None:
-            return jsonify({'error': 'Invalid image format'}), 400
-            
-        image = cv2.resize(image, (128, 128)) / 255.0
-        image = np.expand_dims(image, axis=0)  # Add batch dimension
-        
-        prediction_value = float(model.predict(image)[0][0])
-        threshold = 0.3
-        fracture_detected = prediction_value > threshold
-        
-        # Clean up the temporary file
-        os.remove(temp_path)
-        os.rmdir(temp_dir)
-        
-        processing_time = time.time() - start_time
-        
-        # Return the prediction result
+    if 'xray_image' not in request.files:
+        return jsonify({'error': 'No image uploaded'}), 400
+    
+    file = request.files['xray_image']
+    
+    # Read and preprocess the image
+    start_time = time.time()
+    
+    # Read image file into a numpy array
+    file_bytes = np.frombuffer(file.read(), np.uint8)
+    image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+    
+    if image is None:
+        return jsonify({'error': 'Invalid image format'}), 400
+    
+    # Preprocess
+    resized_image = cv2.resize(image, (224, 224))
+    preprocessed_image = resized_image / 255.0
+    input_image = np.expand_dims(preprocessed_image, axis=0)
+    
+    # Make prediction
+    prediction = float(model.predict(input_image)[0][0])
+    
+    end_time = time.time()
+    processing_time = end_time - start_time
+    
+    # Boolean flag for fracture detection
+    fracture_detected = prediction > 0.5
+    
+    return jsonify({
+        'fracture_detected': bool(fracture_detected),
+        'confidence': float(prediction) if fracture_detected else float(1 - prediction),
+        'processing_time': processing_time
+    })
+
+@app.route('/locate', methods=['POST'])
+def locate_fracture():
+    if 'xray_image' not in request.files:
+        return jsonify({'error': 'No image uploaded'}), 400
+    
+    file = request.files['xray_image']
+    
+    # Read image file into a numpy array
+    file_bytes = np.frombuffer(file.read(), np.uint8)
+    original_image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+    
+    if original_image is None:
+        return jsonify({'error': 'Invalid image format'}), 400
+    
+    # Preserve original dimensions for visualization
+    original_height, original_width = original_image.shape[:2]
+    
+    # Preprocess for prediction
+    resized_image = cv2.resize(original_image, (224, 224))
+    preprocessed_image = resized_image / 255.0
+    input_image = np.expand_dims(preprocessed_image, axis=0)
+    
+    # Make prediction
+    prediction = float(model.predict(input_image)[0][0])
+    
+    if prediction <= 0.5:
         return jsonify({
-            'fracture_detected': bool(fracture_detected),
-            'confidence': float(prediction_value),
-            'processing_time': processing_time
+            'error': 'No fracture detected in this image',
+            'fracture_detected': False
+        }), 400
+    
+    # Get the weights from the last dense layer
+    last_dense_layer = model.layers[-1]
+    last_conv_layer_weights = last_dense_layer.get_weights()[0][:, 0]
+    
+    # Generate heatmap
+    heatmap = generate_heatmap(input_image, feature_model, last_conv_layer_weights)
+    
+    # Find top 3 regions in the heatmap
+    flattened = heatmap.flatten()
+    # Get indices of top 3 values
+    top_indices = np.argsort(flattened)[-3:]
+    # Convert flat indices to 2D coordinates
+    top_points = [(idx % heatmap.shape[1], idx // heatmap.shape[1]) for idx in top_indices]
+    
+    # Remove the highest point, keeping the other 2
+    top_points = top_points[:-1]  # Remove the highest scoring point
+    
+    # Scale coordinates and create bounding boxes
+    x_scale = original_width / 224
+    y_scale = original_height / 224
+    
+    boxes = []
+    result_image = original_image.copy()
+    
+    for i, (center_x, center_y) in enumerate(top_points):
+        # Define a region around each point
+        region_size = 15  # pixels on each side in the heatmap space
+        
+        # Define region boundaries
+        x1 = max(0, center_x - region_size)
+        y1 = max(0, center_y - region_size)
+        x2 = min(heatmap.shape[1] - 1, center_x + region_size)
+        y2 = min(heatmap.shape[0] - 1, center_y + region_size)
+        
+        # Scale to original image size
+        x1_orig = int(x1 * x_scale)
+        y1_orig = int(y1 * y_scale)
+        x2_orig = int(x2 * x_scale)
+        y2_orig = int(y2 * y_scale)
+        
+        # Draw rectangle - bright green
+        cv2.rectangle(result_image, (x1_orig, y1_orig), (x2_orig, y2_orig), (0, 255, 0), 3)
+        
+        # Add to boxes list
+        boxes.append({
+            'x': x1_orig,
+            'y': y1_orig,
+            'width': x2_orig - x1_orig,
+            'height': y2_orig - y1_orig,
+            'score': float(heatmap[center_y, center_x])
         })
     
-    except Exception as e:
-        print(traceback.format_exc())
-        return jsonify({'error': str(e)}), 500
+    # Encode the result image
+    _, buffer = cv2.imencode('.png', result_image)
+    img_str = base64.b64encode(buffer).decode('utf-8')
+    
+    return jsonify({
+        'fracture_detected': True,
+        'localization_boxes': boxes,
+        'result_image': f'data:image/png;base64,{img_str}'
+    })
 
 
 ##########################################################################################################################    
@@ -645,22 +853,40 @@ os.makedirs(RESULTS_FOLDER, exist_ok=True)
 # Store processing sessions
 processing_sessions = {}
 
-def predict1(image_path, model, threshold=0.3):
+def predict1(image_path, model, threshold=0.5):
     image = cv2.imread(image_path)
     if image is None:
         raise ValueError("Error: Image not found or invalid format.")
     
     processed_image = image.copy()  # Keep original for saving later
     
-    # Resize for prediction
-    resized_image = cv2.resize(image, (128, 128)) / 255.0
+    # Resize for MobileNetV2 (224x224 is standard input size)
+    resized_image = cv2.resize(image, (224, 224)) / 255.0
     resized_image = np.expand_dims(resized_image, axis=0)  # Add batch dimension
     
     prediction = model.predict(resized_image)[0][0]
     category = "fracture" if prediction > threshold else "no_fracture"
     
     return processed_image, category, float(prediction)
-
+def load_models1():
+    global model, feature_model
+    if os.path.exists(MODEL_PATH):
+        # Load the saved model
+        model = tf.keras.models.load_model(MODEL_PATH)
+        # Recreate the feature model
+        input_shape = model.input_shape[1:4]
+        _, feature_model = build_model(input_shape)
+        # Copy weights from the loaded model to the feature model
+        for i, layer in enumerate(model.layers):
+            if i < len(feature_model.layers):
+                feature_model.layers[i].set_weights(layer.get_weights())
+    else:
+        # If model doesn't exist, create and train new models (simplified here)
+        model, feature_model = build_model()
+        print("Warning: Pre-trained model not found. Using untrained model.")
+        
+    # Return the models
+    return model, feature_model
 # Process uploaded files in background
 def process_files(session_id, file_paths, threshold=0.3):
     try:
@@ -672,7 +898,7 @@ def process_files(session_id, file_paths, threshold=0.3):
         os.makedirs(no_fracture_folder, exist_ok=True)
         
         # Get model
-        model = load_model()
+        model, feature_model = load_models1()
         
         # Track statistics
         stats = {
@@ -744,7 +970,6 @@ def process_files(session_id, file_paths, threshold=0.3):
                 pass
 
 
-##########################################################################################################################
 # Upload route for multiple X-ray files
 @app.route('/upload-xrays', methods=['POST'])
 def upload_xrays():
@@ -795,8 +1020,6 @@ def upload_xrays():
         print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
-
-##########################################################################################################################
 # Helper function to check allowed file types
 def allowed_file(filename):
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'bmp', 'tif', 'tiff'}
@@ -824,8 +1047,6 @@ def processing_status(session_id):
     
     return jsonify(response)
 
-
-##########################################################################################################################
 # Download results
 @app.route('/download-results/<session_id>', methods=['GET'])
 def download_results(session_id):
@@ -847,7 +1068,365 @@ def download_results(session_id):
         download_name=f'sorted_xrays_{session_id[:8]}.zip'
     )
 
+##########################################################################################################################
+@app.route('/extract-dataset', methods=['POST'])
+def extract_dataset():
+    try:
+        # Get the training percentage from the request
+        data = request.json
+        training_percentage = data.get('training_percentage', 80)
+        
+        # Validate percentage
+        if not 0 < training_percentage < 100:
+            return jsonify({'error': 'Training percentage must be between 1 and 99'}), 400
+            
+        # Create temporary directory for dataset
+        temp_dir = mkdtemp()
+        dataset_dir = os.path.join(temp_dir, 'dataset')
+        
+        # Create directory structure
+        os.makedirs(os.path.join(dataset_dir, 'training', 'fractured'), exist_ok=True)
+        os.makedirs(os.path.join(dataset_dir, 'training', 'non_fractured'), exist_ok=True)
+        os.makedirs(os.path.join(dataset_dir, 'testing', 'fractured'), exist_ok=True)
+        os.makedirs(os.path.join(dataset_dir, 'testing', 'non_fractured'), exist_ok=True)
+        
+        # Get all images from database
+        fractured_images = ImageCorrection.query.filter_by(correction_type='fractured').all()
+        non_fractured_images = ImageCorrection.query.filter_by(correction_type='no-fracture').all()
+        
+        # Randomly shuffle images
+        random.shuffle(fractured_images)
+        random.shuffle(non_fractured_images)
+        
+        # Calculate split indices
+        fractured_train_count = int(len(fractured_images) * training_percentage / 100)
+        non_fractured_train_count = int(len(non_fractured_images) * training_percentage / 100)
+        
+        # Split and copy images
+        # Fractured - Training
+        for img in fractured_images[:fractured_train_count]:
+            # Use annotated image if available, otherwise use original
+            source_path = os.path.join(BASE_DIR, img.annotated_image_path if img.annotated_image_path else img.image_path)
+            if os.path.exists(source_path):
+                # Create a unique filename based on image ID
+                dest_filename = f"img_{img.image_id}_{img.id}.jpg"
+                dest_path = os.path.join(dataset_dir, 'training', 'fractured', dest_filename)
+                shutil.copy2(source_path, dest_path)
+        
+        # Fractured - Testing
+        for img in fractured_images[fractured_train_count:]:
+            source_path = os.path.join(BASE_DIR, img.annotated_image_path if img.annotated_image_path else img.image_path)
+            if os.path.exists(source_path):
+                dest_filename = f"img_{img.image_id}_{img.id}.jpg"
+                dest_path = os.path.join(dataset_dir, 'testing', 'fractured', dest_filename)
+                shutil.copy2(source_path, dest_path)
+        
+        # Non-Fractured - Training
+        for img in non_fractured_images[:non_fractured_train_count]:
+            source_path = os.path.join(BASE_DIR, img.image_path)
+            if os.path.exists(source_path):
+                dest_filename = f"img_{img.image_id}_{img.id}.jpg"
+                dest_path = os.path.join(dataset_dir, 'training', 'non_fractured', dest_filename)
+                shutil.copy2(source_path, dest_path)
+        
+        # Non-Fractured - Testing
+        for img in non_fractured_images[non_fractured_train_count:]:
+            source_path = os.path.join(BASE_DIR, img.image_path)
+            if os.path.exists(source_path):
+                dest_filename = f"img_{img.image_id}_{img.id}.jpg"
+                dest_path = os.path.join(dataset_dir, 'testing', 'non_fractured', dest_filename)
+                shutil.copy2(source_path, dest_path)
+        
+        # Create a metadata file with dataset information
+        metadata = {
+            'dataset_info': {
+                'training_percentage': training_percentage,
+                'testing_percentage': 100 - training_percentage,
+                'total_images': len(fractured_images) + len(non_fractured_images),
+                'fractured_images': {
+                    'total': len(fractured_images),
+                    'training': fractured_train_count,
+                    'testing': len(fractured_images) - fractured_train_count
+                },
+                'non_fractured_images': {
+                    'total': len(non_fractured_images),
+                    'training': non_fractured_train_count,
+                    'testing': len(non_fractured_images) - non_fractured_train_count
+                },
+                'created_at': datetime.now().isoformat()
+            }
+        }
+        
+        with open(os.path.join(dataset_dir, 'dataset_metadata.json'), 'w') as f:
+            json.dump(metadata, f, indent=2)
+        
+        # Create a zip file of the dataset
+        zip_path = os.path.join(temp_dir, 'x-ray-dataset.zip')
+        with zipfile.ZipFile(zip_path, 'w') as zipf:
+            for root, dirs, files in os.walk(dataset_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    zipf.write(file_path, os.path.relpath(file_path, temp_dir))
+        
+        # Return the zip file
+        return send_file(
+            zip_path,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=f'x-ray-dataset-{training_percentage}pct-training.zip'
+        )
+        
+    except Exception as e:
+        app.logger.error(f"Error extracting dataset: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+    
+###########################################################################################################################
 
+
+@app.route('/upload_chunk', methods=['POST'])
+def upload_chunk():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part in the request'}), 400
+    
+    file = request.files['file']
+    path = request.form.get('path', '')
+    
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    # Extract directory structure from the path
+    relative_path = os.path.dirname(path)
+    
+    # Create directory if it doesn't exist
+    upload_path = os.path.join(UPLOAD_FOLDER, relative_path)
+    os.makedirs(upload_path, exist_ok=True)
+    
+    # Save the file
+    filename = os.path.basename(path)
+    file.save(os.path.join(upload_path, secure_filename(filename)))
+    
+    # Print for debugging
+    print(f"Saved file to: {os.path.join(upload_path, secure_filename(filename))}")
+    
+    return jsonify({'success': True, 'message': 'Chunk uploaded successfully'})
+
+MODEL_SAVE_FOLDER = 'saved_models'
+
+# Ensure model save directory exists
+os.makedirs(MODEL_SAVE_FOLDER, exist_ok=True)
+
+# Dictionary to track training progress
+training_progress = {
+    'status': 'idle',
+    'progress': 0,
+    'error': None
+}
+
+# Route to start model training
+@app.route('/api/train', methods=['POST'])
+def train_model():
+    try:
+        # Get training parameters
+        dataset_path = request.form.get('dataset_path')
+        epochs = int(request.form.get('epochs', 10))
+        batch_size = int(request.form.get('batch_size', 32))
+        
+        # Start training in a background thread to avoid blocking the response
+        import threading
+        training_thread = threading.Thread(
+            target=run_training_process,
+            args=(dataset_path, epochs, batch_size)
+        )
+        training_thread.daemon = True
+        training_thread.start()
+        
+        return jsonify({'message': 'Training started successfully'})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Route to get training progress
+@app.route('/api/training_progress', methods=['GET'])
+def get_training_progress():
+    return jsonify(training_progress)
+
+def run_training_process(dataset_path, epochs, batch_size):
+    """Run the training process and store results in the database"""
+    global training_progress
+    
+    training_progress = {
+        'status': 'in_progress',
+        'progress': 0,
+        'error': None
+    }
+    
+    # Create an application context for this thread
+    with app.app_context():
+        try:
+            # Setup full paths
+            base_path = os.path.join(UPLOAD_FOLDER, dataset_path)
+            train_path = os.path.join(base_path, 'training')
+            test_path = os.path.join(base_path, 'testing')
+            
+            if not os.path.exists(train_path) or not os.path.exists(test_path):
+                raise FileNotFoundError(f"Training or testing directory not found in {dataset_path}")
+            
+            # Load training and testing data
+            training_progress['progress'] = 10
+            X_train, y_train = load_data(train_path)
+            X_test, y_test = load_data(test_path)
+            
+            # Build the model
+            training_progress['progress'] = 20
+            model, feature_model = build_model()
+            
+            # Train the model and measure training time
+            training_progress['progress'] = 30
+            start_time = time.time()
+            
+            # Custom callback to update progress
+            class ProgressCallback(tf.keras.callbacks.Callback):
+                def on_epoch_end(self, epoch, logs=None):
+                    current_progress = 30 + int(70 * (epoch + 1) / epochs)
+                    training_progress['progress'] = min(95, current_progress)
+                    
+            # Train with progress monitoring
+            history = train_cnn(model, (X_train, y_train), epochs, batch_size, callbacks=[ProgressCallback()])
+            
+            training_time = time.time() - start_time
+            
+            # Evaluate the model
+            training_progress['progress'] = 96
+            test_loss, test_accuracy = model.evaluate(X_test, y_test)
+            
+            # Generate predictions for additional metrics
+            y_pred_prob = model.predict(X_test)
+            y_pred = (y_pred_prob > 0.5).astype(int).flatten()
+            
+            # Calculate additional metrics
+            precision = precision_score(y_test, y_pred)
+            recall = recall_score(y_test, y_pred)
+            f1 = f1_score(y_test, y_pred)
+            
+            # Save models
+            training_progress['progress'] = 97
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            model_path = os.path.join(MODEL_SAVE_FOLDER, f"fracture_model_{timestamp}")
+            os.makedirs(model_path, exist_ok=True)
+            
+            model.save(os.path.join(model_path, "main_model"))
+            feature_model.save(os.path.join(model_path, "feature_model"))
+            
+            # Extract history data
+            acc_history = history.history.get('accuracy', [])
+            loss_history = history.history.get('loss', [])
+            val_acc_history = history.history.get('val_accuracy', [])
+            val_loss_history = history.history.get('val_loss', [])
+            
+            # Create precision, recall, f1 history per epoch
+            precision_history = []
+            recall_history = []
+            f1_history = []
+            
+            # If validation data was used, calculate metrics for each epoch
+            # if 'val_accuracy' in history.history and len(val_acc_history) > 0:
+            #     for epoch in range(epochs):
+            #         # Use validation data predictions for each epoch if available
+            #         epoch_y_pred = (model.predict(X_test) > 0.5).astype(int).flatten()
+            #         precision_history.append(float(precision_score(y_test, epoch_y_pred)))
+            #         recall_history.append(float(recall_score(y_test, epoch_y_pred)))
+            #         f1_history.append(float(f1_score(y_test, epoch_y_pred)))
+            # Calculate metrics for each epoch regardless of validation data
+            for epoch in range(epochs):
+                epoch_y_pred = (model.predict(X_test) > 0.5).astype(int).flatten()
+                precision_history.append(float(precision_score(y_test, epoch_y_pred)))
+                recall_history.append(float(recall_score(y_test, epoch_y_pred)))
+                f1_history.append(float(f1_score(y_test, epoch_y_pred)))
+            
+            # Store training information in database
+            training_progress['progress'] = 98
+            training_record = ModelTraining(
+                epochs=epochs,
+                accuracy=float(test_accuracy),
+                loss=float(test_loss),
+                precision=float(precision),
+                recall=float(recall),
+                f1_score=float(f1),
+                training_time=float(training_time),
+                model_path=model_path,
+                accuracy_history=json.dumps(list(map(float, acc_history))),
+                loss_history=json.dumps(list(map(float, loss_history))),
+                val_accuracy_history=json.dumps(list(map(float, val_acc_history))) if val_acc_history else json.dumps([]),
+                val_loss_history=json.dumps(list(map(float, val_loss_history))) if val_loss_history else json.dumps([]),
+                precision_history=json.dumps(precision_history),
+                recall_history=json.dumps(recall_history),
+                f1_history=json.dumps(f1_history)
+            )
+            
+            # Set this model as active if it's the first one or has better accuracy
+            existing_active = ModelTraining.query.filter_by(is_active=True).first()
+            if not existing_active or test_accuracy > existing_active.accuracy:
+                # Deactivate current active model if exists
+                if existing_active:
+                    existing_active.is_active = False
+                # Set new model as active
+                training_record.is_active = True
+                
+            # Save to database
+            db.session.add(training_record)
+            db.session.commit()
+            
+            # Update progress to completed
+            training_progress['status'] = 'completed'
+            training_progress['progress'] = 100
+            
+            # Return success with model id
+            return {
+                'id': training_record.id,
+                'accuracy': test_accuracy,
+                'loss': test_loss,
+                'precision': precision,
+                'recall': recall,
+                'f1_score': f1,
+                'training_time': training_time
+            }
+            
+        except Exception as e:
+            import traceback
+            print(f"Training error: {str(e)}")
+            print(traceback.format_exc())
+            
+            training_progress['status'] = 'failed'
+            training_progress['error'] = str(e)
+            return {'error': str(e)}
+
+# Route to get all trained models
+@app.route('/api/models', methods=['GET'])
+def get_models():
+    models = ModelTraining.query.order_by(ModelTraining.timestamp.desc()).all()
+    return jsonify([model.to_dict() for model in models])
+
+# Route to get a specific model's metrics
+@app.route('/api/models/<int:model_id>', methods=['GET'])
+def get_model(model_id):
+    model = ModelTraining.query.get_or_404(model_id)
+    return jsonify(model.to_dict())
+
+# Route to set a model as active
+@app.route('/api/models/<int:model_id>/activate', methods=['POST'])
+def activate_model(model_id):
+    try:
+        # Deactivate all models
+        ModelTraining.query.update({ModelTraining.is_active: False})
+        
+        # Activate the selected model
+        model = ModelTraining.query.get_or_404(model_id)
+        model.is_active = True
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': f'Model {model_id} is now active'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 ##########################################################################################################################
 # Clean up old sessions (run periodically or on startup)
 def cleanup_old_sessions(max_age_hours=24):
