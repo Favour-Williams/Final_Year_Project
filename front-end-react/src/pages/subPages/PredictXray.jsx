@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import CorrectionButton from './CorrectionButton';
+import LocateButton from './LocateButton';
 
 export default function PredictXray() {
   const [file, setFile] = useState(null);
@@ -120,6 +121,12 @@ export default function PredictXray() {
               imageData={previewUrl} 
               prediction={prediction} 
               doctorId={doctorId} 
+            />
+            
+            {/* Add the locate button for fracture localization */}
+            <LocateButton 
+              imageFile={file}
+              predictionResult={prediction} 
             />
           </div>
         )}

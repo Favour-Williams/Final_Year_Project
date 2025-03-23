@@ -3,10 +3,10 @@ import React, { useState, useRef, useEffect } from 'react';
 const CorrectionButton = ({ imageData, prediction, doctorId }) => {
   const [showModal, setShowModal] = useState(false);
   const [correctionType, setCorrectionType] = useState(null);
-  const [circles, setCircles] = useState([]);
+  const [rectangles, setRectangles] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 });
-  const [currentCircle, setCurrentCircle] = useState(null);
+  const [currentRectangle, setCurrentRectangle] = useState(null);
   const [confirmationMessage, setConfirmationMessage] = useState("");
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [imageElement, setImageElement] = useState(null);
@@ -17,7 +17,7 @@ const CorrectionButton = ({ imageData, prediction, doctorId }) => {
   const openCorrectionModal = () => {
     setShowModal(true);
     setCorrectionType(null);
-    setCircles([]);
+    setRectangles([]);
     setConfirmationMessage("");
   };
 
@@ -25,7 +25,7 @@ const CorrectionButton = ({ imageData, prediction, doctorId }) => {
     setShowModal(false);
     setIsDrawing(false);
     setCorrectionType(null);
-    setCircles([]);
+    setRectangles([]);
     setConfirmationMessage("");
   };
 
@@ -48,39 +48,36 @@ const CorrectionButton = ({ imageData, prediction, doctorId }) => {
     
     setIsDrawing(true);
     setStartPoint({ x, y });
-    setCurrentCircle({ x, y, radius: 0 });
+    setCurrentRectangle({ x, y, width: 0, height: 0 });
   };
 
   const handleMouseMove = (e) => {
-    if (!isDrawing || correctionType !== "fractured" || !currentCircle || !imageElement) return;
+    if (!isDrawing || correctionType !== "fractured" || !currentRectangle || !imageElement) return;
     
     const canvas = e.currentTarget;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
-    const dx = x - startPoint.x;
-    const dy = y - startPoint.y;
-    const radius = Math.sqrt(dx * dx + dy * dy);
-    
-    setCurrentCircle({
+    setCurrentRectangle({
       x: startPoint.x,
       y: startPoint.y,
-      radius
+      width: x - startPoint.x,
+      height: y - startPoint.y
     });
   };
 
   const handleMouseUp = () => {
-    if (isDrawing && currentCircle && correctionType === "fractured") {
-      setCircles([...circles, currentCircle]);
+    if (isDrawing && currentRectangle && correctionType === "fractured") {
+      setRectangles([...rectangles, currentRectangle]);
       setIsDrawing(false);
-      setCurrentCircle(null);
+      setCurrentRectangle(null);
     }
   };
 
   const handleCorrectionTypeSelect = (type) => {
     setCorrectionType(type);
-    setCircles([]);
+    setRectangles([]);
   };
 
   // Function to capture the current canvas state as an image
@@ -107,8 +104,8 @@ const CorrectionButton = ({ imageData, prediction, doctorId }) => {
         imageBase64 = imageData.url;
       }
       
-      // Capture annotated image if there are circles
-      const annotatedImageBase64 = circles.length > 0 ? captureCanvasImage() : null;
+      // Capture annotated image if there are rectangles
+      const annotatedImageBase64 = rectangles.length > 0 ? captureCanvasImage() : null;
       
       const data = {
         imageId: imageData.id || "unknown",
@@ -116,7 +113,7 @@ const CorrectionButton = ({ imageData, prediction, doctorId }) => {
         correctionType: correctionType,
         doctorId: doctorId,
         timestamp: timestamp,
-        circles: correctionType === "fractured" ? circles : [],
+        rectangles: correctionType === "fractured" ? rectangles : [],
         imageData: imageBase64,
         annotatedImageData: annotatedImageBase64
       };
@@ -136,8 +133,8 @@ const CorrectionButton = ({ imageData, prediction, doctorId }) => {
       const result = await response.json();
       setConfirmationMessage(result.message || "Correction submitted successfully");
       
-      // Reset circles after successful submission
-      setCircles([]);
+      // Reset rectangles after successful submission
+      setRectangles([]);
     } catch (error) {
       console.error("Error submitting correction:", error);
       setConfirmationMessage("Error: " + error.message);
@@ -156,24 +153,30 @@ const CorrectionButton = ({ imageData, prediction, doctorId }) => {
       // Draw the image
       ctx.drawImage(imageElement, 0, 0, canvasSize.width, canvasSize.height);
       
-      // Draw existing circles
-      ctx.strokeStyle = "red";
-      ctx.lineWidth = 2;
+      // Draw existing rectangles with bright glow effect
+      ctx.shadowColor = '#00FF00'; // Bright neon green
+      ctx.shadowBlur = 15;
+      ctx.strokeStyle = "#00FF00"; // Bright neon green for the stroke
+      ctx.lineWidth = 2.5;
       
-      circles.forEach(circle => {
+      rectangles.forEach(rect => {
         ctx.beginPath();
-        ctx.arc(circle.x, circle.y, circle.radius, 0, 2 * Math.PI);
+        ctx.rect(rect.x, rect.y, rect.width, rect.height);
         ctx.stroke();
       });
       
-      // Draw current circle being created
-      if (isDrawing && currentCircle) {
+      // Draw current rectangle being created
+      if (isDrawing && currentRectangle) {
         ctx.beginPath();
-        ctx.arc(currentCircle.x, currentCircle.y, currentCircle.radius, 0, 2 * Math.PI);
+        ctx.rect(currentRectangle.x, currentRectangle.y, currentRectangle.width, currentRectangle.height);
         ctx.stroke();
       }
+      
+      // Reset shadow for other operations
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
     }
-  }, [canvasSize, circles, currentCircle, imageElement, isDrawing]);
+  }, [canvasSize, rectangles, currentRectangle, imageElement, isDrawing]);
 
   return (
     <div>
@@ -241,7 +244,7 @@ const CorrectionButton = ({ imageData, prediction, doctorId }) => {
             
             {correctionType === "fractured" && (
               <div className="mb-4 text-sm text-gray-600">
-                Please circle the fracture location(s) on the image by clicking and dragging to create circles.
+                Please mark the fracture location(s) on the image by clicking and dragging to create rectangles.
               </div>
             )}
             
