@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Input from "../components/Inputs";
 import Button from "../components/Button";
 import axios from "axios";
-
+import '../styles/createuser.css'
 function SignUpPage() {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
@@ -107,72 +107,103 @@ function SignUpPage() {
     };
 
     return (
-        <div className="max-w-2xl mx-auto p-6">
-            <h1 className="text-2xl font-bold mb-6">Create New User</h1>
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <Input
-                    text="First Name"
-                    placehold="Enter First Name"
-                    type="text"
-                    name="firstName"
-                    value={formData.firstName}
-                    onChange={handleChange}
-                />
-                {errors.firstName && <p className="text-red-500 text-sm">{errors.firstName}</p>}
+        <>
 
-                <Input
-                    text="Last Name"
-                    placehold="Enter Last Name"
-                    type="text"
-                    name="lastName"
-                    value={formData.lastName}
-                    onChange={handleChange}
-                />
-                {errors.lastName && <p className="text-red-500 text-sm">{errors.lastName}</p>}
+            <div class="icon-background">
+                <div class="bg-icon icon-1">👤</div>
+                <div class="bg-icon icon-2">📱</div>
+                <div class="bg-icon icon-3">💻</div>
+                <div class="bg-icon icon-4">📧</div>
+                <div class="bg-icon icon-5">🔑</div>
+                <div class="bg-icon icon-6">⚙️</div>
+                <div class="bg-icon icon-7">📊</div>
+                <div class="bg-icon icon-8">📈</div>
+                <div class="bg-icon icon-9">👑</div>
+                <div class="bg-icon icon-10">🌟</div>
+                <div class="bg-icon icon-11">🚀</div>
+                <div class="bg-icon icon-12">💡</div>
+                <div class="bg-icon icon-13">🎯</div>
+                <div class="bg-icon icon-14">⭐</div>
+                <div class="bg-icon icon-15">🔔</div>
+                <div class="bg-icon icon-16">📝</div>
+                <div class="bg-icon icon-17">🏆</div>
+                <div class="bg-icon icon-18">👍</div>
+                <div class="bg-icon icon-19">📂</div>
+                <div class="bg-icon icon-20">🔍</div>
+            </div>
 
-                <Input
-                    text="Other Names"
-                    placehold="Enter Other Name"
-                    type="text"
-                    name="otherName"
-                    value={formData.otherName}
-                    onChange={handleChange}
-                />
+            <div 
+                className="back-arrow" 
+                onClick={() => navigate(-1)} 
+                title="Go back to previous page"
+                ></div>
+            <div className="max-w-2xl mx-auto p-6">
+                <h1 className="text-2xl font-bold mb-6">Create New User</h1>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <Input
+                        text="First Name"
+                        placehold="Enter First Name"
+                        type="text"
+                        name="firstName"
+                        value={formData.firstName}
+                        onChange={handleChange}
+                    />
+                    {errors.firstName && <p className="text-red-500 text-sm">{errors.firstName}</p>}
 
-                <Input
-                    text="User Name (Auto-Generated)"
-                    placehold="User Name"
-                    type="text"
-                    name="userName"
-                    value={formData.userName}
-                    onChange={handleChange}
-                    disabled // User cannot modify
-                />
-                {errors.userName && <p className="text-red-500 text-sm">{errors.userName}</p>}
+                    <Input
+                        text="Last Name"
+                        placehold="Enter Last Name"
+                        type="text"
+                        name="lastName"
+                        value={formData.lastName}
+                        onChange={handleChange}
+                    />
+                    {errors.lastName && <p className="text-red-500 text-sm">{errors.lastName}</p>}
 
-                <Input
-                    text="Phone Number"
-                    placehold="Enter number"
-                    type="number"
-                    name="phoneNumber"
-                    value={formData.phoneNumber}
-                    onChange={handleChange}
-                />
-                {errors.phoneNumber && <p className="text-red-500 text-sm">{errors.phoneNumber}</p>}
+                    <Input
+                        text="Other Names"
+                        placehold="Enter Other Name"
+                        type="text"
+                        name="otherName"
+                        value={formData.otherName}
+                        onChange={handleChange}
+                    />
 
-                <Input
-                    text="Email"
-                    placehold="Enter Email"
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                />
-                {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
-                
-                <Button text="Create User" type="submit" />
-            </form>
-        </div>
+                    <Input
+                        text="User Name (Auto-Generated)"
+                        placehold="User Name"
+                        type="text"
+                        name="userName"
+                        value={formData.userName}
+                        onChange={handleChange}
+                        disabled // User cannot modify
+                    />
+                    {errors.userName && <p className="text-red-500 text-sm">{errors.userName}</p>}
+
+                    <Input
+                        text="Phone Number"
+                        placehold="Enter number"
+                        type="number"
+                        name="phoneNumber"
+                        value={formData.phoneNumber}
+                        onChange={handleChange}
+                    />
+                    {errors.phoneNumber && <p className="text-red-500 text-sm">{errors.phoneNumber}</p>}
+
+                    <Input
+                        text="Email"
+                        placehold="Enter Email"
+                        type="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                    />
+                    {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
+                    
+                    <Button text="Create User" type="submit" />
+                </form>
+            </div>
+        </>
     );
 }
 

@@ -47,7 +47,7 @@ function DoctorDashboard() {
   };
 
   const handleLogout = () => {
-    navigate('/');
+    navigate('/login');
   };
 
   return (
