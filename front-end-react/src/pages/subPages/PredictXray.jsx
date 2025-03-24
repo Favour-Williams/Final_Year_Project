@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import CorrectionButton from './CorrectionButton';
 import LocateButton from './LocateButton';
 import '../../styles/PredictXray.css';
+import { useLocation } from 'react-router-dom';
+
 
 export default function PredictXray() {
   const [file, setFile] = useState(null);
@@ -9,9 +11,13 @@ export default function PredictXray() {
   const [prediction, setPrediction] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const location = useLocation();
+  const doctorId = location.state?.doctorId || "unknown";
+  const doctorName = location.state?.doctorName || "unknown";
   
   // For demonstration purposes, assuming the logged-in doctor has an ID
-  const doctorId = "doctor_123"; // In a real app, this would come from authentication
+   // In a real app, this would come from authentication
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -121,7 +127,7 @@ export default function PredictXray() {
             <CorrectionButton 
               imageData={previewUrl} 
               prediction={prediction} 
-              doctorId={doctorId} 
+              doctorId={doctorName} 
             />
             
             {/* Add the locate button for fracture localization */}

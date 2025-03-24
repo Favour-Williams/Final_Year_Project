@@ -4,6 +4,8 @@ import './ViewDoctors.css';
 
 export default function ViewDoctors() {
   const [doctors, setDoctors] = useState([]);
+  const [filteredDoctors, setFilteredDoctors] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
@@ -26,11 +28,28 @@ export default function ViewDoctors() {
     fetchDoctors();
   }, []);
 
+  // Filter doctors when searchTerm or doctors change
+  useEffect(() => {
+    if (searchTerm.trim() === '') {
+      setFilteredDoctors(doctors);
+    } else {
+      const term = searchTerm.toLowerCase();
+      const filtered = doctors.filter(
+        doctor => 
+          doctor.userName.toLowerCase().includes(term) ||
+          doctor.firstName.toLowerCase().includes(term) ||
+          doctor.lastName.toLowerCase().includes(term)
+      );
+      setFilteredDoctors(filtered);
+    }
+  }, [searchTerm, doctors]);
+
   const fetchDoctors = async () => {
     try {
       setLoading(true);
       const response = await axios.get('http://localhost:5000/api/doctors');
       setDoctors(response.data);
+      setFilteredDoctors(response.data);
       setError(null);
     } catch (err) {
       setError('Failed to fetch doctors: ' + (err.response?.data?.error || err.message));
@@ -38,6 +57,14 @@ export default function ViewDoctors() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const clearSearch = () => {
+    setSearchTerm('');
   };
 
   const handleDeleteClick = (doctor) => {
@@ -51,7 +78,8 @@ export default function ViewDoctors() {
     try {
       await axios.delete(`http://localhost:5000/api/users/${doctorToDelete.id}`);
       // Remove the deleted doctor from the state
-      setDoctors(doctors.filter(doc => doc.id !== doctorToDelete.id));
+      const updatedDoctors = doctors.filter(doc => doc.id !== doctorToDelete.id);
+      setDoctors(updatedDoctors);
       // Show success message
       alert(`Dr. ${doctorToDelete.firstName} ${doctorToDelete.lastName} has been deleted successfully.`);
     } catch (err) {
@@ -104,9 +132,10 @@ export default function ViewDoctors() {
       );
       
       // Update the doctors list with the updated doctor
-      setDoctors(doctors.map(doc => 
+      const updatedDoctors = doctors.map(doc => 
         doc.id === doctorToUpdate.id ? response.data.user : doc
-      ));
+      );
+      setDoctors(updatedDoctors);
       
       // Close the form and reset
       setShowUpdateForm(false);
@@ -138,11 +167,41 @@ export default function ViewDoctors() {
     <div className="doctors-container">
       <h1 className="doctors-title">View Doctors</h1>
       
-      {doctors.length === 0 ? (
-        <p className="no-doctors">No doctors found in the system.</p>
+      {/* Search Bar */}
+      <div className="search-container">
+        <div className="search-input-wrapper">
+          <input
+            type="text"
+            placeholder="Search by name or username..."
+            value={searchTerm}
+            onChange={handleSearchChange}
+            className="search-input"
+          />
+          {searchTerm && (
+            <button className="clear-search-btn" onClick={clearSearch}>
+              ×
+            </button>
+          )}
+        </div>
+        <div className="search-info">
+          {searchTerm && (
+            <p>
+              Found {filteredDoctors.length} {filteredDoctors.length === 1 ? 'doctor' : 'doctors'} 
+              matching '{searchTerm}'
+            </p>
+          )}
+        </div>
+      </div>
+      
+      {filteredDoctors.length === 0 ? (
+        <p className="no-doctors">
+          {searchTerm 
+            ? `No doctors found matching '${searchTerm}'.` 
+            : 'No doctors found in the system.'}
+        </p>
       ) : (
         <div className="doctors-list">
-          {doctors.map((doctor) => (
+          {filteredDoctors.map((doctor) => (
             <div key={doctor.id} className="doctor-item">
               <div className="doctor-info">
                 <h3>Dr. {doctor.firstName} {doctor.lastName}</h3>

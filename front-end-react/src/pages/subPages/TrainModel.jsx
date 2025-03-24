@@ -284,6 +284,31 @@ export default function TrainModel() {
   };
 
   return (
+    <>
+    
+    
+    <div class="icon-background">
+      <div class="bg-icon icon-1">👤</div>
+      <div class="bg-icon icon-2">📱</div>
+      <div class="bg-icon icon-3">💻</div>
+      <div class="bg-icon icon-4">📧</div>
+      <div class="bg-icon icon-5">🔑</div>
+      <div class="bg-icon icon-6">⚙️</div>
+      <div class="bg-icon icon-7">📊</div>
+      <div class="bg-icon icon-8">📈</div>
+      <div class="bg-icon icon-9">👑</div>
+      <div class="bg-icon icon-10">🌟</div>
+      <div class="bg-icon icon-11">🚀</div>
+      <div class="bg-icon icon-12">💡</div>
+      <div class="bg-icon icon-13">🎯</div>
+      <div class="bg-icon icon-14">⭐</div>
+      <div class="bg-icon icon-15">🔔</div>
+      <div class="bg-icon icon-16">📝</div>
+      <div class="bg-icon icon-17">🏆</div>
+      <div class="bg-icon icon-18">👍</div>
+      <div class="bg-icon icon-19">📂</div>
+      <div class="bg-icon icon-20">🔍</div>
+    </div>
     <div className="train-model-container">
       <h2>Train Fracture Detection Model</h2>
       
@@ -694,5 +719,6 @@ export default function TrainModel() {
         }
       `}</style>
     </div>
+    </>
   );
 }

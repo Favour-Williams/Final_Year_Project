@@ -170,8 +170,8 @@ export default function ExtractCorrectImages() {
                 </div>
               </div>
               <div className="image-details">
-                <p><strong>ID:</strong> {correction.image_id}</p>
-                <p><strong>Doctor ID:</strong> {correction.doctor_id}</p>
+              
+                <p><strong>Doctor User Name:</strong> {correction.doctor_id}</p>
                 <p><strong>Original Prediction:</strong> {correction.original_prediction ? 'Fracture' : 'No Fracture'}</p>
                 <p><strong>Date:</strong> {formatDate(correction.timestamp)}</p>
                 {correction.fracture_locations && (

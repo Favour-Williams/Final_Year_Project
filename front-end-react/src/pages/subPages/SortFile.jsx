@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import '../../styles/sortfile.css'
+import { useLocation } from 'react-router-dom';
 
 
 export default function SortFile() {
@@ -12,6 +13,11 @@ export default function SortFile() {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [stats, setStats] = useState(null);
   const formRef = useRef(null);
+
+  const location = useLocation();
+  const doctorId = location.state?.doctorId || "unknown";
+  const doctorName = location.state?.doctorName || "unknown";
+  
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
@@ -41,6 +47,7 @@ export default function SortFile() {
       });
 
       // Start uploading files
+      formData.append('doctorId', doctorId);
       const uploadResponse = await fetch('http://localhost:5000/upload-xrays', {
         method: 'POST',
         body: formData,

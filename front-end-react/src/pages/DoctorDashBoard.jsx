@@ -39,11 +39,21 @@ function DoctorDashboard() {
   };
 
   const handlePredictImage = () => {
-    navigate('/doctorDashboard/predict');
+    navigate('/doctorDashboard/predict', { 
+      state: { 
+        doctorId: doctorInfo?.id,
+        doctorName: doctorInfo?.user_name 
+      } 
+    });
   };
 
   const handleSortFile = () => {
-    navigate('/doctorDashboard/sort');
+    navigate('/doctorDashboard/sort', { 
+      state: { 
+        doctorId: doctorInfo?.id,
+        doctorName: doctorInfo?.user_name 
+      } 
+    });
   };
 
   const handleLogout = () => {
