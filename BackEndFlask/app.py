@@ -147,8 +147,6 @@ class ModelTraining(db.Model):
 with app.app_context():
     db.create_all()
 
-
-
 # Route to upload file chunks
 
 
@@ -694,28 +692,55 @@ def verify_reset_token(token):
 MODEL_PATH = "bone_fracture_detection_mobilenet_v222.h5"
 model = None
 feature_model = None
-def load_models():
-    global model, feature_model
-    if os.path.exists(MODEL_PATH):
-        # Load the saved model
-        model = tf.keras.models.load_model(MODEL_PATH)
-        # Recreate the feature model
-        input_shape = model.input_shape[1:4]
-        _, feature_model = build_model(input_shape)
-        # Copy weights from the loaded model to the feature model
-        for i, layer in enumerate(model.layers):
-            if i < len(feature_model.layers):
-                feature_model.layers[i].set_weights(layer.get_weights())
-    else:
-        # If model doesn't exist, create and train new models (simplified here)
-        model, feature_model = build_model()
-        print("Warning: Pre-trained model not found. Using untrained model.")
 
-# Load models at startup
-load_models()
+def load_active_model():
+    """Load the currently active model from the database"""
+    global model, feature_model
+    
+    # Create an application context for database access
+    with app.app_context():
+        try:
+            # Find the active model in the database
+            active_model = ModelTraining.query.filter_by(is_active=True).first()
+            
+            if not active_model:
+                print("Warning: No active model found in database")
+                return False
+                
+            model_path = active_model.model_path
+            
+            # Check if model directories exist
+            main_model_path = os.path.join(model_path, "main_model")
+            feature_model_path = os.path.join(model_path, "feature_model")
+            
+            if not os.path.exists(main_model_path) or not os.path.exists(feature_model_path):
+                print(f"Error: Model files not found at {model_path}")
+                return False
+            
+            # Load the models
+            model = tf.keras.models.load_model(main_model_path)
+            feature_model = tf.keras.models.load_model(feature_model_path)
+            
+            print(f"Successfully loaded active model (ID: {active_model.id})")
+            return True
+            
+        except Exception as e:
+            import traceback
+            print(f"Error loading active model: {str(e)}")
+            print(traceback.format_exc())
+            return False
+
+# Load active model at startup
+load_active_model()
 
 @app.route('/predict', methods=['POST'])
 def predict():
+    # Check if model is loaded
+    if model is None:
+        # Try to load model if not already loaded
+        if not load_active_model():
+            return jsonify({'error': 'No active model available. Please activate a model first.'}), 500
+    
     if 'xray_image' not in request.files:
         return jsonify({'error': 'No image uploaded'}), 400
     
@@ -753,6 +778,12 @@ def predict():
 
 @app.route('/locate', methods=['POST'])
 def locate_fracture():
+    # Check if model is loaded
+    if model is None or feature_model is None:
+        # Try to load model if not already loaded
+        if not load_active_model():
+            return jsonify({'error': 'No active model available. Please activate a model first.'}), 500
+    
     if 'xray_image' not in request.files:
         return jsonify({'error': 'No image uploaded'}), 400
     
@@ -870,24 +901,59 @@ def predict1(image_path, model, threshold=0.5):
     return processed_image, category, float(prediction)
 def load_models1():
     global model, feature_model
-    if os.path.exists(MODEL_PATH):
-        # Load the saved model
-        model = tf.keras.models.load_model(MODEL_PATH)
-        # Recreate the feature model
-        input_shape = model.input_shape[1:4]
-        _, feature_model = build_model(input_shape)
-        # Copy weights from the loaded model to the feature model
-        for i, layer in enumerate(model.layers):
-            if i < len(feature_model.layers):
-                feature_model.layers[i].set_weights(layer.get_weights())
-    else:
-        # If model doesn't exist, create and train new models (simplified here)
-        model, feature_model = build_model()
-        print("Warning: Pre-trained model not found. Using untrained model.")
+    
+    # Get the active model from the database
+    with app.app_context():
+        active_model = ModelTraining.query.filter_by(is_active=True).first()
         
+        if active_model and active_model.model_path and os.path.exists(active_model.model_path):
+            # Use the path stored in the database
+            model_path = os.path.join(active_model.model_path, "main_model")
+            feature_model_path = os.path.join(active_model.model_path, "feature_model")
+            
+            # Load the main model
+            if os.path.exists(model_path):
+                model = tf.keras.models.load_model(model_path)
+                print(f"Loaded active model (ID: {active_model.id}) from {model_path}")
+            else:
+                raise FileNotFoundError(f"Active model not found at {model_path}")
+                
+            # Load the feature model
+            if os.path.exists(feature_model_path):
+                feature_model = tf.keras.models.load_model(feature_model_path)
+                print(f"Loaded feature model from {feature_model_path}")
+            else:
+                # If feature model isn't found, recreate it from the main model
+                input_shape = model.input_shape[1:4]
+                _, feature_model = build_model(input_shape)
+                # Copy weights from the loaded model to the feature model
+                for i, layer in enumerate(model.layers):
+                    if i < len(feature_model.layers):
+                        feature_model.layers[i].set_weights(layer.get_weights())
+                print(f"Feature model recreated from main model")
+        else:
+            # Fallback to default model if no active model is set
+            if os.path.exists(MODEL_PATH):
+                print(f"No active model in database, using default model: {MODEL_PATH}")
+                model = tf.keras.models.load_model(MODEL_PATH)
+                
+                # Recreate the feature model
+                input_shape = model.input_shape[1:4]
+                _, feature_model = build_model(input_shape)
+                # Copy weights from the loaded model to the feature model
+                for i, layer in enumerate(model.layers):
+                    if i < len(feature_model.layers):
+                        feature_model.layers[i].set_weights(layer.get_weights())
+            else:
+                # If no model exists at all, create and warn
+                print("Warning: No active model in database and default model not found at " 
+                      f"{MODEL_PATH}. Using untrained model.")
+                model, feature_model = build_model()
+    
     # Return the models
     return model, feature_model
-# Process uploaded files in background
+
+# Update the process_files function to include model info in stats
 def process_files(session_id, file_paths, threshold=0.3):
     try:
         # Create session folders
@@ -897,15 +963,29 @@ def process_files(session_id, file_paths, threshold=0.3):
         os.makedirs(fracture_folder, exist_ok=True)
         os.makedirs(no_fracture_folder, exist_ok=True)
         
-        # Get model
+        # Get model and track which model was used
         model, feature_model = load_models1()
+        
+        # Get model info for the stats
+        model_info = {"model_id": None, "model_accuracy": None}
+        with app.app_context():
+            active_model = ModelTraining.query.filter_by(is_active=True).first()
+            if active_model:
+                model_info = {
+                    "model_id": active_model.id,
+                    "model_accuracy": round(active_model.accuracy * 100, 2) if active_model.accuracy else None,
+                    "model_f1": round(active_model.f1_score, 4) if active_model.f1_score else None,
+                    "model_timestamp": active_model.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+                }
         
         # Track statistics
         stats = {
             "fracture_count": 0,
             "no_fracture_count": 0,
             "total": len(file_paths),
-            "start_time": time.time()
+            "start_time": time.time(),
+            "model": model_info,
+            "threshold": threshold
         }
         
         # Process each file
@@ -969,8 +1049,8 @@ def process_files(session_id, file_paths, threshold=0.3):
             except:
                 pass
 
-
 # Upload route for multiple X-ray files
+# Modify the upload route to accept a custom threshold parameter
 @app.route('/upload-xrays', methods=['POST'])
 def upload_xrays():
     try:
@@ -981,6 +1061,9 @@ def upload_xrays():
         files = request.files.getlist('files')
         if not files or files[0].filename == '':
             return jsonify({'error': 'No files selected'}), 400
+        
+        # Get threshold parameter if provided
+        threshold = float(request.form.get('threshold', 0.3))
         
         # Create a session ID
         session_id = str(uuid.uuid4())
@@ -996,6 +1079,14 @@ def upload_xrays():
                 file.save(file_path)
                 file_paths.append(file_path)
         
+        # Check if we have an active model before proceeding
+        with app.app_context():
+            active_model = ModelTraining.query.filter_by(is_active=True).first()
+            if not active_model and not os.path.exists(MODEL_PATH):
+                return jsonify({
+                    'error': 'No active model available. Please train and activate a model first.'
+                }), 400
+        
         # Initialize processing session
         processing_sessions[session_id] = {
             "status": "processing",
@@ -1007,13 +1098,13 @@ def upload_xrays():
         # Start processing thread
         processing_thread = threading.Thread(
             target=process_files,
-            args=(session_id, file_paths)
+            args=(session_id, file_paths, threshold)
         )
         processing_thread.start()
         
         return jsonify({
             'session_id': session_id,
-            'message': f'Processing {len(file_paths)} files'
+            'message': f'Processing {len(file_paths)} files with threshold {threshold}'
         })
     
     except Exception as e:
@@ -1412,6 +1503,47 @@ def get_model(model_id):
     model = ModelTraining.query.get_or_404(model_id)
     return jsonify(model.to_dict())
 
+@app.route('/api/models/<int:model_id>', methods=['DELETE'])
+def delete_model(model_id):
+    try:
+        model = ModelTraining.query.get_or_404(model_id)
+        
+        # Don't allow deletion of active model
+        if model.is_active:
+            return jsonify({'error': 'Cannot delete the active model'}), 400
+            
+        # Delete the model files
+        if model.model_path and os.path.exists(model.model_path):
+            # Check for model directories instead of specific files
+            main_model_path = os.path.join(model.model_path, "main_model")
+            feature_model_path = os.path.join(model.model_path, "feature_model")
+            
+            # Delete directories if they exist
+            import shutil
+            if os.path.exists(main_model_path):
+                shutil.rmtree(main_model_path)
+            if os.path.exists(feature_model_path):
+                shutil.rmtree(feature_model_path)
+                
+            # Try to remove the parent directory
+            try:
+                os.rmdir(model.model_path)
+            except OSError as e:
+                print(f"Notice: Could not remove directory {model.model_path}: {str(e)}")
+                # Directory not empty, that's fine
+                pass
+        
+        # Delete from database
+        db.session.delete(model)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': f'Model {model_id} deleted successfully'})
+    except Exception as e:
+        import traceback
+        print(f"Error deleting model {model_id}: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
 # Route to set a model as active
 @app.route('/api/models/<int:model_id>/activate', methods=['POST'])
 def activate_model(model_id):
@@ -1424,9 +1556,16 @@ def activate_model(model_id):
         model.is_active = True
         db.session.commit()
         
-        return jsonify({'success': True, 'message': f'Model {model_id} is now active'})
+        # Reload the newly activated model
+        success = load_active_model()
+        
+        if not success:
+            return jsonify({'warning': f'Model {model_id} set as active but failed to load. Check server logs.'}), 200
+        
+        return jsonify({'success': True, 'message': f'Model {model_id} is now active and loaded'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 ##########################################################################################################################
 # Clean up old sessions (run periodically or on startup)
 def cleanup_old_sessions(max_age_hours=24):
