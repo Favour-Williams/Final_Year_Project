@@ -1,4 +1,6 @@
 import React, { useState, useRef } from 'react';
+import '../../styles/sortfile.css'
+
 
 export default function SortFile() {
   const [isUploading, setIsUploading] = useState(false);

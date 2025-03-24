@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import '../styles/admin-dashboard.css'; // You'll need to create this CSS file
+import '../styles/admin-dashboard.css';
 
 function AdminDashboard() {
   const [adminData, setAdminData] = useState(null);
@@ -10,11 +10,9 @@ function AdminDashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Get the admin ID from localStorage or sessionStorage
-    // Alternatively, you can pass it via state when navigating from login
+  
     const fetchAdminData = async () => {
       try {
-        // Assuming you stored the user ID after login
         const userId = localStorage.getItem('userId') || sessionStorage.getItem('userId');
         
         if (!userId) {
@@ -41,7 +39,6 @@ function AdminDashboard() {
     fetchAdminData();
   }, [navigate]);
 
-  // Functions to handle button clicks (same as your LandingPage)
   const handleCreateUser = () => {
     navigate('/admin/createUser');
   };
@@ -58,11 +55,13 @@ function AdminDashboard() {
     navigate('/admin/extract');
   };
 
+  const handleModels = () => {
+    navigate('/admin/models');
+  };
+
   const handleLogout = () => {
-    // Clear stored credentials
     localStorage.removeItem('userId');
     sessionStorage.removeItem('userId');
-    // Navigate to login page
     navigate('/login');
   };
 
@@ -103,6 +102,7 @@ function AdminDashboard() {
             <button onClick={handleViewDoctor}>View Doctors</button>
             <button onClick={handleTrainModel}>Train Model</button>
             <button onClick={handleExtract}>Corrected Images</button>
+            <button onClick={handleModels}>View trained Model data's</button>
           </div>
         </div>
       </div>

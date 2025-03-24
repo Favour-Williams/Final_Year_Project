@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import '../../styles/CorrectionButton.css';
 
 const CorrectionButton = ({ imageData, prediction, doctorId }) => {
   const [showModal, setShowModal] = useState(false);
@@ -21,7 +22,8 @@ const CorrectionButton = ({ imageData, prediction, doctorId }) => {
     setConfirmationMessage("");
   };
 
-  const closeModal = () => {
+  const closeModal = (e) => {
+    if (e) e.stopPropagation();
     setShowModal(false);
     setIsDrawing(false);
     setCorrectionType(null);
@@ -182,60 +184,66 @@ const CorrectionButton = ({ imageData, prediction, doctorId }) => {
     <div>
       <button 
         onClick={openCorrectionModal}
-        className="mt-4 bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600"
+        className="correction-button"
       >
         Report Incorrect Classification
       </button>
       
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-screen overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Correct Classification</h2>
+        <div className="correction-modal-overlay" onClick={closeModal}>
+          <div className="correction-modal-container" onClick={e => e.stopPropagation()}>
+            <h2 className="correction-modal-title">Correct Classification</h2>
             
-            <div className="mb-4">
-              <img 
-                src={typeof imageData === 'string' ? imageData : (imageData.url || '')} 
-                alt="X-ray" 
-                className="hidden"
-                onLoad={handleImageLoad}
-              />
+            <div className="correction-modal-content">
+              {/* Left side - Original image */}
+              <div className="correction-image-container">
+                <h3 className="preview-title">Original X-ray</h3>
+                <img 
+                  src={typeof imageData === 'string' ? imageData : (imageData.url || '')} 
+                  alt="Original X-ray" 
+                  className="preview-image" 
+                />
+              </div>
               
-              {imageElement && (
-                <div className="relative border border-gray-300 inline-block">
-                  <canvas 
-                    ref={canvasRef}
-                    width={canvasSize.width} 
-                    height={canvasSize.height}
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseUp}
-                    className="cursor-crosshair"
-                  />
-                </div>
-              )}
+              {/* Right side - Canvas for drawing */}
+              <div className="correction-image-container">
+                <h3 className="preview-title">Mark Fracture Locations</h3>
+                <img 
+                  src={typeof imageData === 'string' ? imageData : (imageData.url || '')} 
+                  alt="X-ray" 
+                  className="hidden"
+                  onLoad={handleImageLoad}
+                />
+                
+                {imageElement && (
+                  <div className="canvas-container">
+                    <canvas 
+                      ref={canvasRef}
+                      width={canvasSize.width} 
+                      height={canvasSize.height}
+                      onMouseDown={handleMouseDown}
+                      onMouseMove={handleMouseMove}
+                      onMouseUp={handleMouseUp}
+                      onMouseLeave={handleMouseUp}
+                      className="drawing-canvas"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
             
-            <div className="mb-6">
-              <h3 className="font-medium mb-2">Select the correct classification:</h3>
-              <div className="flex space-x-4">
+            <div className="correction-type-container">
+              <h3 className="correction-type-title">Select the correct classification:</h3>
+              <div className="correction-buttons-container">
                 <button
                   onClick={() => handleCorrectionTypeSelect("fractured")}
-                  className={`px-4 py-2 rounded ${
-                    correctionType === "fractured" 
-                      ? "bg-red-600 text-white" 
-                      : "bg-gray-200 hover:bg-red-100"
-                  }`}
+                  className={`correction-type-button ${correctionType === "fractured" ? "fractured-selected" : ""}`}
                 >
                   Fractured
                 </button>
                 <button
                   onClick={() => handleCorrectionTypeSelect("no-fracture")}
-                  className={`px-4 py-2 rounded ${
-                    correctionType === "no-fracture" 
-                      ? "bg-green-600 text-white" 
-                      : "bg-gray-200 hover:bg-green-100"
-                  }`}
+                  className={`correction-type-button ${correctionType === "no-fracture" ? "no-fracture-selected" : ""}`}
                 >
                   No Fracture
                 </button>
@@ -243,28 +251,28 @@ const CorrectionButton = ({ imageData, prediction, doctorId }) => {
             </div>
             
             {correctionType === "fractured" && (
-              <div className="mb-4 text-sm text-gray-600">
+              <div className="instruction-text">
                 Please mark the fracture location(s) on the image by clicking and dragging to create rectangles.
               </div>
             )}
             
             {confirmationMessage && (
-              <div className="mb-4 p-3 bg-green-100 text-green-700 rounded">
+              <div className="confirmation-message">
                 {confirmationMessage}
               </div>
             )}
             
-            <div className="flex justify-end space-x-3">
+            <div className="modal-actions">
               <button
                 onClick={closeModal}
-                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                className="cancel-button"
               >
                 Cancel
               </button>
               <button
                 onClick={submitCorrection}
                 disabled={!correctionType || isSubmitting}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-300"
+                className={`submit-button ${(!correctionType || isSubmitting) ? "disabled" : ""}`}
               >
                 {isSubmitting ? "Submitting..." : "Submit Correction"}
               </button>

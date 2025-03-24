@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import CorrectionButton from './CorrectionButton';
 import LocateButton from './LocateButton';
+import '../../styles/PredictXray.css';
 
 export default function PredictXray() {
   const [file, setFile] = useState(null);
@@ -60,59 +61,59 @@ export default function PredictXray() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-md">
-      <h1 className="text-2xl font-bold mb-6">X-ray Fracture Detection</h1>
+    <div className="predict-xray-container">
+      <h1 className="predict-xray-title">X-ray Fracture Detection</h1>
       
-      <form onSubmit={handleSubmit} className="mb-6">
-        <div className="mb-4">
-          <label className="block mb-2 font-medium">Upload X-ray Image</label>
+      <form onSubmit={handleSubmit} className="predict-xray-form">
+        <div className="input-group">
+          <label className="input-label">Upload X-ray Image</label>
           <input 
             type="file" 
             accept="image/*"
             onChange={handleFileChange}
-            className="block w-full border border-gray-300 rounded px-3 py-2"
+            className="file-input"
           />
         </div>
         
         <button 
           type="submit" 
           disabled={loading}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-blue-300"
+          className="predict-button"
         >
           {loading ? 'Processing...' : 'Predict'}
         </button>
       </form>
 
       {error && (
-        <div className="p-3 bg-red-100 text-red-700 rounded mb-4">
+        <div className="error-message">
           {error}
         </div>
       )}
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="result-grid">
         {/* Preview uploaded image */}
         {previewUrl && (
-          <div className="border rounded p-4">
-            <h2 className="font-medium mb-2">Uploaded Image</h2>
+          <div className="preview-container">
+            <h2 className="preview-title">Uploaded Image</h2>
             <img 
               src={previewUrl} 
               alt="X-ray preview" 
-              className="w-full h-auto object-contain max-h-64"
+              className="preview-image"
             />
           </div>
         )}
 
         {/* Show prediction results */}
         {prediction && (
-          <div className={`border rounded p-4 ${prediction.fracture_detected ? 'bg-red-50' : 'bg-green-50'}`}>
-            <h2 className="font-medium mb-2">Prediction Result</h2>
-            <div className="text-lg font-bold">
+          <div className={`prediction-container ${prediction.fracture_detected ? 'fracture' : 'no-fracture'}`}>
+            <h2 className="prediction-title">Prediction Result</h2>
+            <div className="prediction-result">
               {prediction.fracture_detected ? 'Fracture Detected' : 'No Fracture Detected'}
             </div>
-            <div className="mt-2">
+            <div className="prediction-confidence">
               Confidence: {(prediction.confidence * 100).toFixed(2)}%
             </div>
-            <div className="mt-2 text-sm text-gray-600">
+            <div className="prediction-time">
               Processed in {prediction.processing_time.toFixed(2)} seconds
             </div>
             

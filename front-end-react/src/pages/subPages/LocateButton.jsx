@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import '../../styles/LocateButton.css';
 
 export default function LocateButton({ imageFile, predictionResult }) {
   const [localization, setLocalization] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showModal, setShowModal] = useState(false);
 
   const handleLocate = async () => {
     if (!imageFile || !predictionResult?.fracture_detected) {
@@ -12,6 +14,7 @@ export default function LocateButton({ imageFile, predictionResult }) {
 
     setLoading(true);
     setError(null);
+    setShowModal(true);
     
     try {
       const formData = new FormData();
@@ -36,36 +39,83 @@ export default function LocateButton({ imageFile, predictionResult }) {
     }
   };
 
+  const closeModal = () => {
+    setShowModal(false);
+  };
+
   return (
-    <div className="mt-4">
+    <div className="locate-button-container">
       {predictionResult?.fracture_detected && (
         <button
           onClick={handleLocate}
           disabled={loading}
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-green-300 mt-2"
+          className="locate-button"
         >
           {loading ? 'Localizing...' : 'Locate Fracture'}
         </button>
       )}
 
       {error && (
-        <div className="p-3 bg-red-100 text-red-700 rounded mt-2">
+        <div className="locate-error">
           {error}
         </div>
       )}
 
-      {localization && (
-        <div className="mt-4">
-          <h3 className="font-medium mb-2">Fracture Localization</h3>
-          <div className="border rounded p-2">
-            <img 
-              src={localization.result_image} 
-              alt="Fracture localization" 
-              className="w-full h-auto object-contain max-h-64"
-            />
-            <p className="mt-2 text-sm text-gray-600">
-              {localization.localization_boxes.length} potential fracture sites identified
-            </p>
+      {showModal && (
+        <div className="correction-modal-overlay" onClick={closeModal}>
+          <div className="correction-modal-container" onClick={e => e.stopPropagation()}>
+            <h2 className="correction-modal-title">Fracture Localization</h2>
+            
+            <div className="locate-modal-layout">
+              {/* Original image on the left */}
+              <div className="locate-upload-container">
+                <h3 className="preview-title">Original X-ray</h3>
+                {imageFile && (
+                  <img 
+                    src={URL.createObjectURL(imageFile)} 
+                    alt="Original X-ray" 
+                    className="preview-image"
+                  />
+                )}
+              </div>
+              
+              {/* Localized result on the right */}
+              <div className="locate-result-container">
+                <h3 className="locate-result-title">Localization Result</h3>
+                {loading ? (
+                  <div className="flex justify-center items-center h-64">
+                    <p>Processing image...</p>
+                  </div>
+                ) : localization ? (
+                  <div>
+                    <div className="locate-result-image-container">
+                      <img 
+                        src={localization.result_image} 
+                        alt="Fracture localization" 
+                        className="locate-result-image"
+                      />
+                    </div>
+                    <p className="locate-result-info">
+                      {localization.localization_boxes.length} potential fracture sites identified
+                    </p>
+                  </div>
+                ) : error ? (
+                  <div className="locate-error">
+                    {error}
+                  </div>
+                ) : (
+                  <div className="flex justify-center items-center h-64">
+                    <p>Waiting for analysis...</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="correction-actions">
+              <button onClick={closeModal} className="correction-cancel-button">
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
