@@ -170,3 +170,44 @@
     font-size: 0.875rem;
     color: var(--text-medium);
   }
+ /* Add to PredictXray.css */
+
+.predict-xray-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.history-link {
+  display: inline-block;
+  background-color: #4a90e2;
+  color: white;
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.history-link:hover {
+  background-color: #3a7bc8;
+  text-decoration: none;
+}
+
+.history-link:active {
+  background-color: #2d62a3;
+}
+
+/* Make sure the title doesn't overflow on mobile */
+@media (max-width: 768px) {
+  .predict-xray-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .predict-xray-title {
+    margin-bottom: 10px;
+  }
+}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import '../../styles/LocateButton.css';
 
-export default function LocateButton({ imageFile, predictionResult }) {
+export default function LocateButton({ imageFile, predictionResult, doctorId}) {
   const [localization, setLocalization] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -9,7 +9,7 @@ export default function LocateButton({ imageFile, predictionResult }) {
 
   const handleLocate = async () => {
     if (!imageFile || !predictionResult?.fracture_detected) {
-      return;
+        return;
     }
 
     setLoading(true);
@@ -17,27 +17,29 @@ export default function LocateButton({ imageFile, predictionResult }) {
     setShowModal(true);
     
     try {
-      const formData = new FormData();
-      formData.append('xray_image', imageFile);
+        const formData = new FormData();
+        formData.append('xray_image', imageFile);
+        formData.append('doctor_id', doctorId);  // Add doctor ID
+        formData.append('prediction_id', predictionResult.prediction_id);  // Add prediction ID
 
-      const response = await fetch('http://127.0.0.1:5000/locate', {
-        method: 'POST',
-        body: formData,
-      });
+        const response = await fetch('http://127.0.0.1:5000/locate', {
+            method: 'POST',
+            body: formData,
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to localize fracture');
-      }
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to localize fracture');
+        }
 
-      const result = await response.json();
-      setLocalization(result);
+        const result = await response.json();
+        setLocalization(result);
     } catch (err) {
-      setError(err.message || 'Something went wrong');
+        setError(err.message || 'Something went wrong');
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
+};
 
   const closeModal = () => {
     setShowModal(false);

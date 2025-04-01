@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
+import { useLocation, Link } from 'react-router-dom';
 import CorrectionButton from './CorrectionButton';
 import LocateButton from './LocateButton';
 import '../../styles/PredictXray.css';
-import { useLocation } from 'react-router-dom';
-
 
 export default function PredictXray() {
   const [file, setFile] = useState(null);
@@ -15,9 +14,6 @@ export default function PredictXray() {
   const location = useLocation();
   const doctorId = location.state?.doctorId || "unknown";
   const doctorName = location.state?.doctorName || "unknown";
-  
-  // For demonstration purposes, assuming the logged-in doctor has an ID
-   // In a real app, this would come from authentication
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -37,38 +33,48 @@ export default function PredictXray() {
     e.preventDefault();
     
     if (!file) {
-      setError("Please select an X-ray image first");
-      return;
+        setError("Please select an X-ray image first");
+        return;
     }
 
     setLoading(true);
     setError(null);
     
     try {
-      const formData = new FormData();
-      formData.append('xray_image', file);
+        const formData = new FormData();
+        formData.append('xray_image', file);
+        formData.append('doctor_id', doctorId);  // Add doctor ID to the form data
 
-      const response = await fetch('http://127.0.0.1:5000/predict', {
-        method: 'POST',
-        body: formData,
-      });
+        const response = await fetch('http://127.0.0.1:5000/predict', {
+            method: 'POST',
+            body: formData,
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to get prediction');
-      }
+        if (!response.ok) {
+            throw new Error('Failed to get prediction');
+        }
 
-      const result = await response.json();
-      setPrediction(result);
+        const result = await response.json();
+        setPrediction(result);
     } catch (err) {
-      setError(err.message || 'Something went wrong');
+        setError(err.message || 'Something went wrong');
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   };
 
   return (
     <div className="predict-xray-container">
-      <h1 className="predict-xray-title">X-ray Fracture Detection</h1>
+      <div className="predict-xray-header">
+        <h1 className="predict-xray-title">X-ray Fracture Detection</h1>
+        <Link 
+          to="/history" 
+          state={{ doctorId: doctorId, doctorName: doctorName }}
+          className="history-link"
+        >
+          View History
+        </Link>
+      </div>
       
       <form onSubmit={handleSubmit} className="predict-xray-form">
         <div className="input-group">
@@ -133,7 +139,8 @@ export default function PredictXray() {
             {/* Add the locate button for fracture localization */}
             <LocateButton 
               imageFile={file}
-              predictionResult={prediction} 
+              predictionResult={prediction}
+              doctorId={doctorId}
             />
           </div>
         )}

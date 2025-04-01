@@ -57,6 +57,8 @@ function DoctorDashboard() {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('userId');
+    sessionStorage.removeItem('userId');
     navigate('/login');
   };
 

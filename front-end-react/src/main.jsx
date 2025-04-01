@@ -16,6 +16,7 @@ import PredictImage from './pages/subPages/PredictXray.jsx'
 import SortFile from './pages/subPages/SortFile.jsx'
 import ExtractCorrectImages from './pages/subPages/ExtractCorrectImages.jsx'
 import ViewModels from './pages/subPages/ViewModels.jsx';
+import HistoryPage from './pages/subPages/HistoryPage.jsx';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -38,6 +39,8 @@ createRoot(document.getElementById('root')).render(
         <Route path='/doctorDashboard' element={<DoctorDashboard/>} /> 
         <Route path='/doctorDashboard/predict' element={<PredictImage/>} />
         <Route path='/doctorDashboard/sort' element={<SortFile/>} />
+        <Route path='/history' element={<HistoryPage/>} />
+
 
 
         
