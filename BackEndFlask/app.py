@@ -147,7 +147,26 @@ class ModelTraining(db.Model):
 with app.app_context():
     db.create_all()
 
-# Route to upload file chunks
+class ImagePrediction(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    image_data = db.Column(db.LargeBinary, nullable=False)  # Stores the actual image binary data
+    image_name = db.Column(db.String(100), nullable=False)
+    upload_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    prediction = db.Column(db.Float, nullable=False)  # Raw prediction value (0-1)
+    classification = db.Column(db.Boolean, nullable=False)  # True for fracture, False for no fracture
+    confidence = db.Column(db.Float, nullable=False)  # Confidence percentage
+    processing_time = db.Column(db.Float, nullable=False)  # Time taken for prediction in seconds
+    doctor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # For fracture localization (nullable since not all images will have fractures)
+    localization_boxes = db.Column(db.JSON)  # Stores the bounding boxes as JSON
+    annotated_image = db.Column(db.LargeBinary)  # Stores the annotated image with boxes
+    
+    # Relationship
+    doctor = db.relationship('User', backref=db.backref('predictions', lazy=True))
+
+with app.app_context():
+    db.create_all()
 
 
 
@@ -735,6 +754,15 @@ load_active_model()
 
 @app.route('/predict', methods=['POST'])
 def predict():
+
+    doctor_id = request.form.get('doctor_id')
+    if not doctor_id:
+        return jsonify({'error': 'Doctor identification required'}), 401
+    
+    doctor = User.query.get(doctor_id)
+    if not doctor:
+        return jsonify({'error': 'Doctor not found'}), 404
+
     # Check if model is loaded
     if model is None:
         # Try to load model if not already loaded
@@ -770,14 +798,46 @@ def predict():
     # Boolean flag for fracture detection
     fracture_detected = prediction > 0.5
     
+    try:
+        # Read the file again for storage (since we already read it for prediction)
+        file.seek(0)
+        image_bytes = file.read()
+        
+        new_prediction = ImagePrediction(
+            image_data=image_bytes,
+            image_name=file.filename,
+            prediction=prediction,
+            classification=fracture_detected,
+            confidence=float(prediction) if fracture_detected else float(1 - prediction),
+            processing_time=processing_time,
+            doctor_id=doctor.id
+        )
+        
+        db.session.add(new_prediction)
+        db.session.commit()
+        
+    except Exception as e:
+        print(f"Error saving prediction: {str(e)}")
+        # Don't fail the request, just log the error
+    
     return jsonify({
         'fracture_detected': bool(fracture_detected),
         'confidence': float(prediction) if fracture_detected else float(1 - prediction),
-        'processing_time': processing_time
+        'processing_time': processing_time,
+        'prediction_id': new_prediction.id if 'new_prediction' in locals() else None
     })
 
 @app.route('/locate', methods=['POST'])
 def locate_fracture():
+
+    doctor_id = request.form.get('doctor_id')
+    if not doctor_id:
+        return jsonify({'error': 'Doctor identification required'}), 401
+    
+    doctor = User.query.get(doctor_id)
+    if not doctor:
+        return jsonify({'error': 'Doctor not found'}), 404
+    
     # Check if model is loaded
     if model is None or feature_model is None:
         # Try to load model if not already loaded
@@ -869,12 +929,79 @@ def locate_fracture():
     _, buffer = cv2.imencode('.png', result_image)
     img_str = base64.b64encode(buffer).decode('utf-8')
     
+    prediction_id = request.form.get('prediction_id')
+    if prediction_id:
+        try:
+            prediction_record = ImagePrediction.query.get(prediction_id)
+            if prediction_record:
+                # Store the localization data
+                prediction_record.localization_boxes = boxes
+                
+                # Store the annotated image
+                _, buffer = cv2.imencode('.png', result_image)
+                prediction_record.annotated_image = buffer.tobytes()
+                
+                db.session.commit()
+        except Exception as e:
+            print(f"Error updating prediction with localization: {str(e)}")
+    
     return jsonify({
         'fracture_detected': True,
         'localization_boxes': boxes,
-        'result_image': f'data:image/png;base64,{img_str}'
+        'result_image': f'data:image/png;base64,{img_str}',
+        'prediction_id': prediction_id
     })
-
+##########################################################################################################################
+@app.route('/history/<doctor_id>', methods=['GET'])
+def get_prediction_history(doctor_id):
+    try:
+        # Convert doctor_id to integer if it's a number
+        try:
+            doctor_id = int(doctor_id)
+        except ValueError:
+            # If not a number, handle accordingly (e.g., for "unknown")
+            pass
+        
+        # Query the database for predictions by the specified doctor
+        predictions = ImagePrediction.query.filter_by(doctor_id=doctor_id).order_by(
+            ImagePrediction.upload_date.desc()
+        ).all()
+        
+        # Prepare the predictions data
+        predictions_data = []
+        for pred in predictions:
+            # Convert binary image data to base64 for transmission
+            image_base64 = base64.b64encode(pred.image_data).decode('utf-8')
+            
+            # Prepare the prediction data
+            pred_data = {
+                'id': pred.id,
+                'image_name': pred.image_name,
+                'upload_date': pred.upload_date.isoformat(),
+                'prediction': pred.prediction,
+                'classification': pred.classification,
+                'confidence': pred.confidence,
+                'processing_time': pred.processing_time,
+                'image_data': image_base64,
+                'localization_boxes': pred.localization_boxes
+            }
+            
+            # Include the annotated image if it exists
+            if pred.annotated_image:
+                pred_data['annotated_image'] = base64.b64encode(pred.annotated_image).decode('utf-8')
+            
+            predictions_data.append(pred_data)
+        
+        return jsonify({
+            'success': True,
+            'predictions': predictions_data
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 ##########################################################################################################################    
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_uploads')
