@@ -1,45 +1,38 @@
 import os
-import uuid
-import shutil
-import zipfile
-import tempfile
-import threading
+import re
+import io
 import cv2
-import traceback
-import sqlite3
+import uuid
+import json
 import time
-import tensorflow as tf
-import numpy as np
+import shutil
 import random
 import string
-import datetime
-import os
-import re
 import base64
-import json
-from datetime import datetime
-from tempfile import mkdtemp
-from werkzeug.utils import secure_filename
-# Add these to your imports
-from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, send_file, Blueprint
-from flask_sqlalchemy import SQLAlchemy
+import zipfile
+import sqlite3
+import tempfile
+import datetime
+import threading
+import traceback
+import numpy as np
+import tensorflow as tf
 from flask_cors import CORS
+from tempfile import mkdtemp
+from threading import Thread
+from datetime import datetime
+import matplotlib.pyplot as plt
+from flask_migrate import Migrate
 from flask_mail import Mail, Message
 from contextlib import contextmanager
+from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
-from model.cnnModel import build_model, generate_heatmap, train_cnn, evaluate_cnn, load_data
-from model.predictImage import predict_image
-from datetime import datetime
-from werkzeug.security import generate_password_hash, check_password_hash
-
-from threading import Thread
-from sklearn.metrics import precision_recall_fscore_support, confusion_matrix, accuracy_score
-import matplotlib.pyplot as plt
-import io
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-
+from flask import Flask, request, jsonify, send_file
 from sklearn.metrics import precision_score, recall_score, f1_score
+from werkzeug.security import generate_password_hash, check_password_hash
+from model.cnnModel import build_model, generate_heatmap, train_cnn, load_data
+
 # Initialize the Flask app
 app = Flask(__name__)
 
@@ -59,6 +52,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(BASE_DIR, "boneDetection.db")}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
+# migrate = Migrate(app, db)
 
 app.config['SECRET_KEY'] = 'your-secret-key'
 CORRECTIONS_FOLDER = os.path.join(BASE_DIR, "static/corrections")
@@ -91,9 +85,12 @@ class ImageCorrection(db.Model):
     doctor_id = db.Column(db.String(100), nullable=False)
     original_prediction = db.Column(db.Boolean, nullable=False)
     correction_type = db.Column(db.String(20), nullable=False)  # "fractured" or "no-fracture"
-    fracture_locations = db.Column(db.Text, nullable=True)  # JSON string of circle coordinates
-    image_path = db.Column(db.String(255), nullable=False)  # Path to the stored image
-    annotated_image_path = db.Column(db.String(255), nullable=True)  # Path to the annotated image (if applicable)
+    fracture_locations = db.Column(db.Text, nullable=True)  # JSON string of rectangle coordinates
+    
+    # Binary storage for images instead of file paths
+    original_image = db.Column(db.LargeBinary, nullable=False)  # Stores the actual image binary data
+    annotated_image = db.Column(db.LargeBinary, nullable=True)  # Stores the annotated image if available
+    
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
 with app.app_context():
@@ -111,7 +108,9 @@ class ModelTraining(db.Model):
     recall = db.Column(db.Float)
     f1_score = db.Column(db.Float)
     training_time = db.Column(db.Float)
-    model_path = db.Column(db.String(255))
+    model_path = db.Column(db.String(255))  # Keep for backward compatibility
+    main_model_blob = db.Column(db.LargeBinary)  # New column for main model blob
+    feature_model_blob = db.Column(db.LargeBinary)  # New column for feature model blob
     is_active = db.Column(db.Boolean, default=False)
     accuracy_history = db.Column(db.Text)  # Stored as JSON string
     loss_history = db.Column(db.Text)  # Stored as JSON string
@@ -134,6 +133,7 @@ class ModelTraining(db.Model):
             'training_time': round(self.training_time, 2) if self.training_time else None,
             'model_path': self.model_path,
             'is_active': self.is_active,
+            'has_model_blob': self.main_model_blob is not None,  # Add indicator for blob availability
             'accuracy_history': json.loads(self.accuracy_history) if self.accuracy_history else None,
             'loss_history': json.loads(self.loss_history) if self.loss_history else None,
             'val_accuracy_history': json.loads(self.val_accuracy_history) if self.val_accuracy_history else None,
@@ -345,7 +345,7 @@ def submit_correction():
         doctor_id = data.get('doctorId')
         original_prediction = data.get('originalPrediction', {})
         correction_type = data.get('correctionType')
-        circles = data.get('circles', [])
+        rectangles = data.get('rectangles', [])  # Updated from circles to rectangles to match front-end
         image_data = data.get('imageData')  # Base64 encoded image
         annotated_image_data = data.get('annotatedImageData')  # Base64 encoded annotated image
         
@@ -353,61 +353,44 @@ def submit_correction():
         if not image_id or not doctor_id or not correction_type or not image_data:
             return jsonify({'error': 'Missing required fields'}), 400
         
-        # Create timestamp-based unique folder for this correction
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        correction_dir = os.path.join(CORRECTIONS_FOLDER, f"{doctor_id}_{timestamp}")
-        os.makedirs(correction_dir, exist_ok=True)
-        
-        # Save original image
+        # Process original image
         try:
             # Remove data URL prefix if present (e.g., "data:image/jpeg;base64,")
             if ',' in image_data:
                 image_data = image_data.split(',')[1]
             
-            image_bytes = base64.b64decode(image_data)
-            image_filename = f"original_{secure_filename(str(image_id))}.png"
-            image_path = os.path.join(correction_dir, image_filename)
-            
-            with open(image_path, 'wb') as f:
-                f.write(image_bytes)
-                
-            relative_image_path = os.path.relpath(image_path, BASE_DIR)
+            # Convert base64 to binary
+            original_image_binary = base64.b64decode(image_data)
         except Exception as e:
-            app.logger.error(f"Error saving original image: {str(e)}")
-            return jsonify({'error': f'Failed to save image: {str(e)}'}), 500
+            app.logger.error(f"Error processing original image: {str(e)}")
+            return jsonify({'error': f'Failed to process image: {str(e)}'}), 500
         
-        # Save annotated image if provided
-        annotated_image_path = None
+        # Process annotated image if provided
+        annotated_image_binary = None
         if annotated_image_data:
             try:
                 # Remove data URL prefix if present
                 if ',' in annotated_image_data:
                     annotated_image_data = annotated_image_data.split(',')[1]
                 
-                annotated_bytes = base64.b64decode(annotated_image_data)
-                annotated_filename = f"annotated_{secure_filename(str(image_id))}.png"
-                annotated_path = os.path.join(correction_dir, annotated_filename)
-                
-                with open(annotated_path, 'wb') as f:
-                    f.write(annotated_bytes)
-                    
-                annotated_image_path = os.path.relpath(annotated_path, BASE_DIR)
+                # Convert base64 to binary
+                annotated_image_binary = base64.b64decode(annotated_image_data)
             except Exception as e:
-                app.logger.error(f"Error saving annotated image: {str(e)}")
+                app.logger.error(f"Error processing annotated image: {str(e)}")
                 # Continue even if annotated image fails - we still have the original
         
-        # Convert circles to JSON string if present
-        fracture_locations = json.dumps(circles) if circles else None
+        # Convert rectangles to JSON string if present
+        fracture_locations = json.dumps(rectangles) if rectangles else None
         
-        # Create new correction record
+        # Create new correction record with binary data
         correction = ImageCorrection(
             image_id=image_id,
             doctor_id=doctor_id,
             original_prediction=original_prediction.get('fracture_detected', False),
             correction_type=correction_type,
             fracture_locations=fracture_locations,
-            image_path=relative_image_path,
-            annotated_image_path=annotated_image_path,
+            original_image=original_image_binary,
+            annotated_image=annotated_image_binary,
             timestamp=datetime.utcnow()
         )
         
@@ -442,9 +425,10 @@ def get_corrections():
                 'doctor_id': correction.doctor_id,
                 'original_prediction': correction.original_prediction,
                 'correction_type': correction.correction_type,
-                'image_path': correction.image_path,
-                'annotated_image_path': correction.annotated_image_path,
-                'timestamp': correction.timestamp.isoformat()
+                'timestamp': correction.timestamp.isoformat(),
+                # Add URLs for fetching images
+                'original_image_url': f'/correction-image/{correction.id}/original',
+                'annotated_image_url': f'/correction-image/{correction.id}/annotated' if correction.annotated_image else None
             }
             
             # Include fracture locations if available
@@ -460,18 +444,25 @@ def get_corrections():
         return jsonify({'error': str(e)}), 500
 
 # Route to serve images from the stored paths
-@app.route('/images/<path:image_path>', methods=['GET'])
-def serve_image(image_path):
+@app.route('/correction-image/<int:correction_id>/<image_type>', methods=['GET'])
+def serve_correction_image(correction_id, image_type):
     try:
-        # Construct the full path
-        full_path = os.path.join(BASE_DIR, image_path)
+        # Get the correction record
+        correction = ImageCorrection.query.get_or_404(correction_id)
         
-        # Verify the path is within the allowed directory (security check)
-        if not os.path.abspath(full_path).startswith(os.path.abspath(BASE_DIR)):
-            return jsonify({'error': 'Access denied'}), 403
+        if image_type == 'original' and correction.original_image:
+            return send_file(
+                io.BytesIO(correction.original_image),
+                mimetype='image/png'
+            )
+        elif image_type == 'annotated' and correction.annotated_image:
+            return send_file(
+                io.BytesIO(correction.annotated_image),
+                mimetype='image/png'
+            )
+        else:
+            return jsonify({'error': 'Image not found'}), 404
             
-        return send_file(full_path)
-        
     except Exception as e:
         app.logger.error(f"Error serving image: {str(e)}")
         return jsonify({'error': str(e)}), 500
@@ -725,30 +716,79 @@ def load_active_model():
             if not active_model:
                 print("Warning: No active model found in database")
                 return False
+            
+            # First try to load from blobs if available
+            if active_model.main_model_blob and active_model.feature_model_blob:
+                print(f"Loading model (ID: {active_model.id}) from database blobs")
                 
-            model_path = active_model.model_path
-            
-            # Check if model directories exist
-            main_model_path = os.path.join(model_path, "main_model")
-            feature_model_path = os.path.join(model_path, "feature_model")
-            
-            if not os.path.exists(main_model_path) or not os.path.exists(feature_model_path):
-                print(f"Error: Model files not found at {model_path}")
+                # Function to extract model from blob
+                def load_model_from_blob(blob_data):
+                    import io
+                    import zipfile
+                    import tempfile
+                    import shutil
+                    
+                    # Create temporary directory
+                    temp_dir = tempfile.mkdtemp()
+                    
+                    try:
+                        # Extract zip to temporary directory
+                        zip_bytes = io.BytesIO(blob_data)
+                        with zipfile.ZipFile(zip_bytes, 'r') as zip_ref:
+                            zip_ref.extractall(temp_dir)
+                        
+                        # Load the model
+                        loaded_model = tf.keras.models.load_model(temp_dir, compile=False)
+                        return loaded_model
+                    finally:
+                        # Clean up temporary directory
+                        shutil.rmtree(temp_dir)
+                
+                # Load models from blobs
+                model = load_model_from_blob(active_model.main_model_blob)
+                feature_model = load_model_from_blob(active_model.feature_model_blob)
+                
+                # Only compile if needed for inference
+                if hasattr(app, 'model_requires_compilation') and app.model_requires_compilation:
+                    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+                    feature_model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+                
+                print(f"Successfully loaded active model (ID: {active_model.id}) from blobs")
+                return True
+                
+            # Fall back to file-based loading if blobs are not available
+            elif active_model.model_path:
+                model_path = active_model.model_path
+                
+                # Check if model directories exist
+                main_model_path = os.path.join(model_path, "main_model")
+                feature_model_path = os.path.join(model_path, "feature_model")
+                
+                if not os.path.exists(main_model_path) or not os.path.exists(feature_model_path):
+                    print(f"Error: Model files not found at {model_path}")
+                    return False
+                
+                # Load the models with optimized options
+                # 1. Use TF's optimized loading options
+                model = tf.keras.models.load_model(main_model_path, compile=False)
+                feature_model = tf.keras.models.load_model(feature_model_path, compile=False)
+                
+                # Only compile if needed for inference
+                if hasattr(app, 'model_requires_compilation') and app.model_requires_compilation:
+                    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+                    feature_model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+                
+                print(f"Successfully loaded active model (ID: {active_model.id}) from file system")
+                return True
+            else:
+                print("Error: Active model has neither blob data nor file path")
                 return False
-            
-            # Load the models
-            model = tf.keras.models.load_model(main_model_path)
-            feature_model = tf.keras.models.load_model(feature_model_path)
-            
-            print(f"Successfully loaded active model (ID: {active_model.id})")
-            return True
-            
+                
         except Exception as e:
             import traceback
             print(f"Error loading active model: {str(e)}")
             print(traceback.format_exc())
             return False
-
 # Load active model at startup
 load_active_model()
 
@@ -1002,7 +1042,20 @@ def get_prediction_history(doctor_id):
             'success': False,
             'error': str(e)
         }), 500
-
+@app.route('/predictions/<int:prediction_id>', methods=['DELETE'])
+def delete_prediction(prediction_id):
+    try:
+        # Find the prediction
+        prediction = ImagePrediction.query.get_or_404(prediction_id)
+        
+        # Delete the prediction
+        db.session.delete(prediction)
+        db.session.commit()
+        
+        return jsonify({'message': 'Prediction deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 ##########################################################################################################################    
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_uploads')
 RESULTS_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sorted_results')
@@ -1010,6 +1063,8 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESULTS_FOLDER, exist_ok=True)
 # Store processing sessions
 processing_sessions = {}
+# Global model cache to avoid reloading
+global_model_cache = {"model": None, "feature_model": None, "last_loaded": None}
 
 def predict1(image_path, model, threshold=0.5):
     image = cv2.imread(image_path)
@@ -1018,7 +1073,7 @@ def predict1(image_path, model, threshold=0.5):
     
     processed_image = image.copy()  # Keep original for saving later
     
-    # Resize for MobileNetV2 (224x224 is standard input size)
+    
     resized_image = cv2.resize(image, (224, 224)) / 255.0
     resized_image = np.expand_dims(resized_image, axis=0)  # Add batch dimension
     
@@ -1026,8 +1081,61 @@ def predict1(image_path, model, threshold=0.5):
     category = "fracture" if prediction > threshold else "no_fracture"
     
     return processed_image, category, float(prediction)
+
+# New batch prediction function for faster processing
+def batch_predict(image_paths, model, batch_size=16, threshold=0.5):
+    results = []
+    
+    # Process images in batches
+    for i in range(0, len(image_paths), batch_size):
+        batch_paths = image_paths[i:i+batch_size]
+        batch_images = []
+        valid_indices = []
+        
+        # Load and preprocess all images in current batch
+        for idx, path in enumerate(batch_paths):
+            try:
+                image = cv2.imread(path)
+                if image is not None:
+                    # Keep original image for later
+                    processed_image = image.copy()
+                    # Preprocess for model
+                    resized = cv2.resize(image, (224, 224)) / 255.0
+                    batch_images.append(resized)
+                    valid_indices.append(idx)
+                else:
+                    print(f"Warning: Could not read image at {path}")
+            except Exception as e:
+                print(f"Error preprocessing image {path}: {str(e)}")
+        
+        if batch_images:
+            try:
+                # Convert to numpy array for batch prediction
+                batch_array = np.array(batch_images)
+                # Predict all images in batch at once
+                predictions = model.predict(batch_array, verbose=0)
+                
+                # Process results
+                for j, pred_idx in enumerate(valid_indices):
+                    if j < len(predictions):
+                        path = batch_paths[pred_idx]
+                        prediction = predictions[j][0]
+                        category = "fracture" if prediction > threshold else "no_fracture"
+                        # Re-read original image to avoid storing all in memory
+                        original_image = cv2.imread(path)
+                        results.append((path, original_image, category, float(prediction)))
+            except Exception as e:
+                print(f"Error during batch prediction: {str(e)}")
+    
+    return results
+
 def load_models1():
-    global model, feature_model
+    global global_model_cache
+    
+    # Check if we have a cached model that's still valid
+    if global_model_cache["model"] is not None and global_model_cache["feature_model"] is not None:
+        print("Using cached models")
+        return global_model_cache["model"], global_model_cache["feature_model"]
     
     # Get the active model from the database
     with app.app_context():
@@ -1077,18 +1185,95 @@ def load_models1():
                       f"{MODEL_PATH}. Using untrained model.")
                 model, feature_model = build_model()
     
+    # Cache the models
+    global_model_cache["model"] = model
+    global_model_cache["feature_model"] = feature_model
+    global_model_cache["last_loaded"] = datetime.now()
+    
     # Return the models
     return model, feature_model
-
-# Update the process_files function to include model info in stats
+def locate_fracture_in_image(image, model, feature_model):
+    """
+    Locates fractures in an X-ray image and returns an annotated image with bounding boxes.
+    Matches the style and behavior of locate_fracture() function.
+    
+    Args:
+        image: The original X-ray image (BGR format from OpenCV)
+        model: The main classification model
+        feature_model: The feature extraction model
+        
+    Returns:
+        An annotated image with bounding boxes around potential fracture locations
+    """
+    # Preserve original dimensions for visualization
+    original_height, original_width = image.shape[:2]
+    result_image = image.copy()
+    
+    # Preprocess for prediction
+    resized_image = cv2.resize(image, (224, 224))
+    preprocessed_image = resized_image / 255.0
+    input_image = np.expand_dims(preprocessed_image, axis=0)
+    
+    # Make prediction (though we don't use the result, we keep the flow similar)
+    prediction = float(model.predict(input_image)[0][0])
+    
+    # Get the weights from the last dense layer
+    last_dense_layer = model.layers[-1]
+    last_conv_layer_weights = last_dense_layer.get_weights()[0][:, 0]
+    
+    # Generate heatmap
+    heatmap = generate_heatmap(input_image, feature_model, last_conv_layer_weights)
+    
+    # Find top 3 regions in the heatmap
+    flattened = heatmap.flatten()
+    # Get indices of top 3 values
+    top_indices = np.argsort(flattened)[-3:]
+    # Convert flat indices to 2D coordinates
+    top_points = [(idx % heatmap.shape[1], idx // heatmap.shape[1]) for idx in top_indices]
+    
+    # Remove the highest point, keeping the other 2 (matching locate_fracture behavior)
+    top_points = top_points[:-1]
+    
+    # Scale coordinates and create bounding boxes
+    x_scale = original_width / 224
+    y_scale = original_height / 224
+    
+    for i, (center_x, center_y) in enumerate(top_points):
+        # Define a region around each point
+        region_size = 15  # pixels on each side in the heatmap space
+        
+        # Define region boundaries
+        x1 = max(0, center_x - region_size)
+        y1 = max(0, center_y - region_size)
+        x2 = min(heatmap.shape[1] - 1, center_x + region_size)
+        y2 = min(heatmap.shape[0] - 1, center_y + region_size)
+        
+        # Scale to original image size
+        x1_orig = int(x1 * x_scale)
+        y1_orig = int(y1 * y_scale)
+        x2_orig = int(x2 * x_scale)
+        y2_orig = int(y2 * y_scale)
+        
+        # Draw rectangle - bright green (matching locate_fracture)
+        cv2.rectangle(result_image, (x1_orig, y1_orig), (x2_orig, y2_orig), (0, 255, 0), 3)
+        
+        # Add confidence score text (optional - not present in locate_fracture)
+        # score = float(heatmap[center_y, center_x])
+        # confidence_text = f"{score:.2f}"
+        # cv2.putText(result_image, confidence_text, (x1_orig, y1_orig-5), 
+        #             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+    return result_image
+# Updated process_files function with parallel processing
 def process_files(session_id, file_paths, threshold=0.3):
     try:
         # Create session folders
         session_folder = os.path.join(RESULTS_FOLDER, session_id)
         fracture_folder = os.path.join(session_folder, "fracture")
         no_fracture_folder = os.path.join(session_folder, "no_fracture")
+        location_folder = os.path.join(session_folder, "location")  # New folder for located fractures
         os.makedirs(fracture_folder, exist_ok=True)
         os.makedirs(no_fracture_folder, exist_ok=True)
+        os.makedirs(location_folder, exist_ok=True)  # Create location folder
         
         # Get model and track which model was used
         model, feature_model = load_models1()
@@ -1109,36 +1294,74 @@ def process_files(session_id, file_paths, threshold=0.3):
         stats = {
             "fracture_count": 0,
             "no_fracture_count": 0,
+            "located_count": 0,  # Track located fractures
             "total": len(file_paths),
             "start_time": time.time(),
             "model": model_info,
             "threshold": threshold
         }
         
-        # Process each file
-        for i, file_path in enumerate(file_paths):
-            try:
-                # Update progress
-                processing_sessions[session_id]["progress"] = int((i / len(file_paths)) * 100)
-                
-                # Predict and sort
-                filename = os.path.basename(file_path)
-                processed_image, category, confidence = predict1(file_path, model, threshold)
-                
-                # Determine destination folder
+        import concurrent.futures
+        from concurrent.futures import ThreadPoolExecutor
+        import math
+        
+        # Determine optimal batch size and number of workers
+        total_files = len(file_paths)
+        batch_size = min(16, max(1, math.ceil(total_files / 10)))  # Adjust based on total files
+        max_workers = min(os.cpu_count() or 4, 8)  # Limit to reasonable number to avoid memory issues
+        
+        # Function to process a batch of files
+        def process_batch(batch_paths):
+            results = batch_predict(batch_paths, model, batch_size=len(batch_paths), threshold=threshold)
+            batch_results = []
+            
+            for path, img, category, confidence in results:
+                filename = os.path.basename(path)
                 if category == "fracture":
+                    # Save original image in fracture folder
                     save_path = os.path.join(fracture_folder, filename)
-                    stats["fracture_count"] += 1
+                    cv2.imwrite(save_path, img)
+                    
+                    # Process image to locate fracture
+                    try:
+                        located_img = locate_fracture_in_image(img, model, feature_model)
+                        location_save_path = os.path.join(location_folder, filename)
+                        cv2.imwrite(location_save_path, located_img)
+                        batch_results.append((category, save_path, True))  # True indicates location was processed
+                    except Exception as e:
+                        print(f"Error locating fracture in {filename}: {str(e)}")
+                        batch_results.append((category, save_path, False))  # False indicates location failed
                 else:
                     save_path = os.path.join(no_fracture_folder, filename)
-                    stats["no_fracture_count"] += 1
+                    cv2.imwrite(save_path, img)
+                    batch_results.append((category, save_path, None))  # None indicates no location needed
+            
+            return batch_results
+        
+        # Split files into batches for parallel processing
+        file_batches = [file_paths[i:i+batch_size] for i in range(0, len(file_paths), batch_size)]
+        processed_files = 0
+        
+        # Process batches in parallel
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_batch = {executor.submit(process_batch, batch): i for i, batch in enumerate(file_batches)}
+            
+            for future in concurrent.futures.as_completed(future_to_batch):
+                batch_results = future.result()
                 
-                # Save processed image
-                cv2.imwrite(save_path, processed_image)
+                # Update statistics
+                for category, _, location_processed in batch_results:
+                    if category == "fracture":
+                        stats["fracture_count"] += 1
+                        if location_processed:
+                            stats["located_count"] += 1
+                    else:
+                        stats["no_fracture_count"] += 1
                 
-            except Exception as e:
-                print(f"Error processing file {file_path}: {str(e)}")
-                # Continue processing other files
+                # Update progress
+                processed_files += len(batch_results)
+                progress = int((processed_files / total_files) * 100)
+                processing_sessions[session_id]["progress"] = progress
         
         # Create zip file
         zip_path = os.path.join(RESULTS_FOLDER, f"{session_id}.zip")
@@ -1160,6 +1383,11 @@ def process_files(session_id, file_paths, threshold=0.3):
             "stats": stats
         })
         
+        # Clean TensorFlow memory
+        import gc
+        gc.collect()
+        tf.keras.backend.clear_session()
+        
     except Exception as e:
         traceback_str = traceback.format_exc()
         print(f"Processing error: {str(e)}\n{traceback_str}")
@@ -1176,8 +1404,7 @@ def process_files(session_id, file_paths, threshold=0.3):
             except:
                 pass
 
-# Upload route for multiple X-ray files
-# Modify the upload route to accept a custom threshold parameter
+# Upload route for multiple X-ray files - optimized
 @app.route('/upload-xrays', methods=['POST'])
 def upload_xrays():
     try:
@@ -1227,6 +1454,7 @@ def upload_xrays():
             target=process_files,
             args=(session_id, file_paths, threshold)
         )
+        processing_thread.daemon = True  # Make thread exit when main thread exits
         processing_thread.start()
         
         return jsonify({
@@ -1265,7 +1493,7 @@ def processing_status(session_id):
     
     return jsonify(response)
 
-# Download results
+# Download results with streaming support for faster downloads
 @app.route('/download-results/<session_id>', methods=['GET'])
 def download_results(session_id):
     if session_id not in processing_sessions:
@@ -1278,13 +1506,49 @@ def download_results(session_id):
     if not os.path.exists(session['zip_path']):
         return jsonify({'error': 'Result file not found'}), 404
     
-    # Return the zip file
+    # Return the zip file with streaming enabled
     return send_file(
         session['zip_path'],
         mimetype='application/zip',
         as_attachment=True,
         download_name=f'sorted_xrays_{session_id[:8]}.zip'
     )
+
+# Cleanup old sessions periodically
+def cleanup_old_sessions():
+    current_time = datetime.now()
+    sessions_to_remove = []
+    
+    for session_id, session in processing_sessions.items():
+        # Parse the created_at timestamp
+        created_at = datetime.fromisoformat(session['created_at'])
+        # If session is older than 24 hours, mark for removal
+        if (current_time - created_at).total_seconds() > 86400:  # 24 hours
+            sessions_to_remove.append(session_id)
+            # Clean up any zip files
+            if 'zip_path' in session and os.path.exists(session['zip_path']):
+                try:
+                    os.remove(session['zip_path'])
+                except:
+                    pass
+    
+    # Remove old sessions
+    for session_id in sessions_to_remove:
+        del processing_sessions[session_id]
+
+# Setup periodic cleanup
+import threading
+import time
+
+def cleanup_thread():
+    while True:
+        time.sleep(3600)  # Run every hour
+        cleanup_old_sessions()
+
+# Start cleanup thread when app starts
+cleanup_thread = threading.Thread(target=cleanup_thread)
+cleanup_thread.daemon = True
+cleanup_thread.start()
 
 ##########################################################################################################################
 @app.route('/extract-dataset', methods=['POST'])
@@ -1320,40 +1584,42 @@ def extract_dataset():
         fractured_train_count = int(len(fractured_images) * training_percentage / 100)
         non_fractured_train_count = int(len(non_fractured_images) * training_percentage / 100)
         
-        # Split and copy images
+        # Split and save images directly from binary data
         # Fractured - Training
-        for img in fractured_images[:fractured_train_count]:
+        for i, img in enumerate(fractured_images[:fractured_train_count]):
             # Use annotated image if available, otherwise use original
-            source_path = os.path.join(BASE_DIR, img.annotated_image_path if img.annotated_image_path else img.image_path)
-            if os.path.exists(source_path):
+            image_data = img.annotated_image if img.annotated_image else img.original_image
+            if image_data:
                 # Create a unique filename based on image ID
                 dest_filename = f"img_{img.image_id}_{img.id}.jpg"
                 dest_path = os.path.join(dataset_dir, 'training', 'fractured', dest_filename)
-                shutil.copy2(source_path, dest_path)
+                with open(dest_path, 'wb') as f:
+                    f.write(image_data)
         
         # Fractured - Testing
-        for img in fractured_images[fractured_train_count:]:
-            source_path = os.path.join(BASE_DIR, img.annotated_image_path if img.annotated_image_path else img.image_path)
-            if os.path.exists(source_path):
+        for i, img in enumerate(fractured_images[fractured_train_count:]):
+            image_data = img.annotated_image if img.annotated_image else img.original_image
+            if image_data:
                 dest_filename = f"img_{img.image_id}_{img.id}.jpg"
                 dest_path = os.path.join(dataset_dir, 'testing', 'fractured', dest_filename)
-                shutil.copy2(source_path, dest_path)
+                with open(dest_path, 'wb') as f:
+                    f.write(image_data)
         
         # Non-Fractured - Training
-        for img in non_fractured_images[:non_fractured_train_count]:
-            source_path = os.path.join(BASE_DIR, img.image_path)
-            if os.path.exists(source_path):
+        for i, img in enumerate(non_fractured_images[:non_fractured_train_count]):
+            if img.original_image:
                 dest_filename = f"img_{img.image_id}_{img.id}.jpg"
                 dest_path = os.path.join(dataset_dir, 'training', 'non_fractured', dest_filename)
-                shutil.copy2(source_path, dest_path)
+                with open(dest_path, 'wb') as f:
+                    f.write(img.original_image)
         
         # Non-Fractured - Testing
-        for img in non_fractured_images[non_fractured_train_count:]:
-            source_path = os.path.join(BASE_DIR, img.image_path)
-            if os.path.exists(source_path):
+        for i, img in enumerate(non_fractured_images[non_fractured_train_count:]):
+            if img.original_image:
                 dest_filename = f"img_{img.image_id}_{img.id}.jpg"
                 dest_path = os.path.join(dataset_dir, 'testing', 'non_fractured', dest_filename)
-                shutil.copy2(source_path, dest_path)
+                with open(dest_path, 'wb') as f:
+                    f.write(img.original_image)
         
         # Create a metadata file with dataset information
         metadata = {
@@ -1397,6 +1663,12 @@ def extract_dataset():
     except Exception as e:
         app.logger.error(f"Error extracting dataset: {str(e)}")
         return jsonify({'error': str(e)}), 500
+    finally:
+        # Cleanup temporary directory when done
+        try:
+            shutil.rmtree(temp_dir)
+        except Exception as e:
+            app.logger.warning(f"Error cleaning up temp directory: {str(e)}")
     
 ###########################################################################################################################
 
@@ -1526,14 +1798,43 @@ def run_training_process(dataset_path, epochs, batch_size):
             recall = recall_score(y_test, y_pred)
             f1 = f1_score(y_test, y_pred)
             
-            # Save models
+            # Save models as blobs
             training_progress['progress'] = 97
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            model_path = os.path.join(MODEL_SAVE_FOLDER, f"fracture_model_{timestamp}")
-            os.makedirs(model_path, exist_ok=True)
             
-            model.save(os.path.join(model_path, "main_model"))
-            feature_model.save(os.path.join(model_path, "feature_model"))
+            # Create a temporary directory for saving models
+            import tempfile
+            temp_dir = tempfile.mkdtemp()
+            
+            # Save models to temporary directory
+            temp_main_model_path = os.path.join(temp_dir, "main_model")
+            temp_feature_model_path = os.path.join(temp_dir, "feature_model")
+            
+            model.save(temp_main_model_path)
+            feature_model.save(temp_feature_model_path)
+            
+            # Serialize models to blobs using TensorFlow's SavedModel format
+            import io
+            import zipfile
+            
+            # Function to zip a directory into a bytes object
+            def zip_directory_to_bytes(directory):
+                bytes_io = io.BytesIO()
+                with zipfile.ZipFile(bytes_io, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                    for root, _, files in os.walk(directory):
+                        for file in files:
+                            file_path = os.path.join(root, file)
+                            arcname = os.path.relpath(file_path, directory)
+                            zipf.write(file_path, arcname)
+                return bytes_io.getvalue()
+            
+            # Convert models to blobs
+            main_model_blob = zip_directory_to_bytes(temp_main_model_path)
+            feature_model_blob = zip_directory_to_bytes(temp_feature_model_path)
+            
+            # Clean up temporary directory
+            import shutil
+            shutil.rmtree(temp_dir)
             
             # Extract history data
             acc_history = history.history.get('accuracy', [])
@@ -1546,20 +1847,15 @@ def run_training_process(dataset_path, epochs, batch_size):
             recall_history = []
             f1_history = []
             
-            # If validation data was used, calculate metrics for each epoch
-            # if 'val_accuracy' in history.history and len(val_acc_history) > 0:
-            #     for epoch in range(epochs):
-            #         # Use validation data predictions for each epoch if available
-            #         epoch_y_pred = (model.predict(X_test) > 0.5).astype(int).flatten()
-            #         precision_history.append(float(precision_score(y_test, epoch_y_pred)))
-            #         recall_history.append(float(recall_score(y_test, epoch_y_pred)))
-            #         f1_history.append(float(f1_score(y_test, epoch_y_pred)))
-            # Calculate metrics for each epoch regardless of validation data
             for epoch in range(epochs):
                 epoch_y_pred = (model.predict(X_test) > 0.5).astype(int).flatten()
                 precision_history.append(float(precision_score(y_test, epoch_y_pred)))
                 recall_history.append(float(recall_score(y_test, epoch_y_pred)))
                 f1_history.append(float(f1_score(y_test, epoch_y_pred)))
+            
+            # Create a file-based model path for backward compatibility
+            model_path = os.path.join(MODEL_SAVE_FOLDER, f"fracture_model_{timestamp}")
+            os.makedirs(model_path, exist_ok=True)
             
             # Store training information in database
             training_progress['progress'] = 98
@@ -1571,7 +1867,9 @@ def run_training_process(dataset_path, epochs, batch_size):
                 recall=float(recall),
                 f1_score=float(f1),
                 training_time=float(training_time),
-                model_path=model_path,
+                model_path=model_path,  # Keep for backward compatibility
+                main_model_blob=main_model_blob,  # Store main model as blob
+                feature_model_blob=feature_model_blob,  # Store feature model as blob
                 accuracy_history=json.dumps(list(map(float, acc_history))),
                 loss_history=json.dumps(list(map(float, loss_history))),
                 val_accuracy_history=json.dumps(list(map(float, val_acc_history))) if val_acc_history else json.dumps([]),
@@ -1638,8 +1936,8 @@ def delete_model(model_id):
         # Don't allow deletion of active model
         if model.is_active:
             return jsonify({'error': 'Cannot delete the active model'}), 400
-            
-        # Delete the model files
+        
+        # Delete model files if they exist (for backward compatibility)
         if model.model_path and os.path.exists(model.model_path):
             # Check for model directories instead of specific files
             main_model_path = os.path.join(model.model_path, "main_model")
@@ -1675,24 +1973,53 @@ def delete_model(model_id):
 @app.route('/api/models/<int:model_id>/activate', methods=['POST'])
 def activate_model(model_id):
     try:
-        # Deactivate all models
-        ModelTraining.query.update({ModelTraining.is_active: False})
-        
-        # Activate the selected model
         model = ModelTraining.query.get_or_404(model_id)
-        model.is_active = True
-        db.session.commit()
         
-        # Reload the newly activated model
-        success = load_active_model()
+        if model.is_active:
+            return jsonify({'success': True, 'message': f'Model {model_id} is already active'})
         
-        if not success:
-            return jsonify({'warning': f'Model {model_id} set as active but failed to load. Check server logs.'}), 200
+        # Check if we have the model data (either as blob or file)
+        has_blob = model.main_model_blob is not None and model.feature_model_blob is not None
+        has_files = False
         
-        return jsonify({'success': True, 'message': f'Model {model_id} is now active and loaded'})
+        if model.model_path:
+            main_model_path = os.path.join(model.model_path, "main_model")
+            feature_model_path = os.path.join(model.model_path, "feature_model")
+            has_files = os.path.exists(main_model_path) and os.path.exists(feature_model_path)
+        
+        if not (has_blob or has_files):
+            return jsonify({'error': f'Model data not found for model {model_id}'}), 404
+        
+        # Use a separate thread to load the model to avoid blocking
+        def load_model_in_background():
+            # Deactivate all models
+            with app.app_context():
+                ModelTraining.query.update({ModelTraining.is_active: False})
+                
+                # Activate the selected model
+                model = ModelTraining.query.get(model_id)
+                if model:
+                    model.is_active = True
+                    db.session.commit()
+                
+                # Reload the newly activated model
+                success = load_active_model()
+                
+                print(f"Background model loading completed: {'success' if success else 'failed'}")
+        
+        # Start the background thread
+        import threading
+        thread = threading.Thread(target=load_model_in_background)
+        thread.daemon = True
+        thread.start()
+        
+        # Return success response immediately
+        return jsonify({'success': True, 'message': f'Model {model_id} activation in progress'})
     except Exception as e:
+        import traceback
+        print(f"Error activating model {model_id}: {str(e)}")
+        print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
-
 ##########################################################################################################################
 # Clean up old sessions (run periodically or on startup)
 def cleanup_old_sessions(max_age_hours=24):
