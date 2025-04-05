@@ -17,26 +17,17 @@
     gap: 20px;
   }
   
+
   .doctor-item {
     border: 1px solid #ddd;
     border-radius: 8px;
     padding: 15px;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column; /* Change to column layout */
     background-color: #fff;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
-  
-  .doctor-info h3 {
-    margin-top: 0;
-    color: #333;
-  }
-  
-  .doctor-info p {
-    margin: 5px 0;
-    color: #666;
-  }
+
   
   .delete-btn {
     background-color: #ff4d4f;
@@ -147,23 +138,14 @@
     gap: 20px;
   }
   
-  .doctor-item {
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 15px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: #fff;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
+
   
   .doctor-info {
     flex: 1;
   }
   
   .doctor-info h3 {
-    margin-top: 0;
+
     color: #333;
   }
   
@@ -175,6 +157,8 @@
   .doctor-actions {
     display: flex;
     gap: 10px;
+    width: 100%;
+    justify-content: flex-end;
   }
   
   .update-btn {

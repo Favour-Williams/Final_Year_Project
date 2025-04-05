@@ -7,31 +7,58 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(null);
   
   const location = useLocation();
   const doctorId = location.state?.doctorId || "unknown";
 
   useEffect(() => {
     // Fetch prediction history when component mounts
-    const fetchHistory = async () => {
-      try {
-        const response = await fetch(`http://127.0.0.1:5000/history/${doctorId}`);
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch prediction history');
-        }
-        
-        const data = await response.json();
-        setPredictions(data.predictions);
-      } catch (err) {
-        setError(err.message || 'Error fetching history');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     fetchHistory();
   }, [doctorId]);
+  
+  const fetchHistory = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`http://127.0.0.1:5000/history/${doctorId}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch prediction history');
+      }
+      
+      const data = await response.json();
+      setPredictions(data.predictions);
+    } catch (err) {
+      setError(err.message || 'Error fetching history');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to delete a prediction
+  const handleDeletePrediction = async (predictionId) => {
+    if (!window.confirm('Are you sure you want to delete this prediction?')) {
+      return;
+    }
+    
+    try {
+      setDeleteLoading(predictionId);
+      const response = await fetch(`http://127.0.0.1:5000/predictions/${predictionId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete prediction');
+      }
+      
+      // Update the UI by removing the deleted prediction
+      setPredictions(predictions.filter(p => p.id !== predictionId));
+    } catch (err) {
+      setError(err.message || 'Error deleting prediction');
+    } finally {
+      setDeleteLoading(null);
+    }
+  };
 
   // Function to convert binary data to image URL
   const binaryToImageUrl = (binaryData) => {
@@ -88,14 +115,24 @@ export default function HistoryPage() {
                   Confidence: {(prediction.confidence * 100).toFixed(2)}%
                 </div>
                 
-                {prediction.classification && prediction.annotated_image && (
+                <div className="history-actions">
+                  {prediction.classification && prediction.annotated_image && (
+                    <button 
+                      className="view-localization-btn"
+                      onClick={() => openLocalizationPopup(prediction)}
+                    >
+                      View Fracture Location
+                    </button>
+                  )}
+                  
                   <button 
-                    className="view-localization-btn"
-                    onClick={() => openLocalizationPopup(prediction)}
+                    className="delete-btn"
+                    onClick={() => handleDeletePrediction(prediction.id)}
+                    disabled={deleteLoading === prediction.id}
                   >
-                    View Fracture Location
+                    {deleteLoading === prediction.id ? 'Deleting...' : 'Delete'}
                   </button>
-                )}
+                </div>
               </div>
             </div>
           ))}

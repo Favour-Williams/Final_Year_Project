@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
+import '../../styles/TrainModel.css'
+import { useNavigate } from "react-router-dom";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -23,6 +25,7 @@ ChartJS.register(
 );
 
 export default function TrainModel() {
+  const navigate = useNavigate();
   const [isTraining, setIsTraining] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [trainingProgress, setTrainingProgress] = useState(0);
@@ -285,440 +288,262 @@ export default function TrainModel() {
 
   return (
     <>
+      <header className="dashboard-header">
+        <div className="logo">
+        <div className="footer-logo-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                  </svg>
+                </div>
+          <span className="logo-text">BoneDetect AI</span>
+        </div>
+      </header>
     
-    
-    <div class="icon-background">
-      <div class="bg-icon icon-1">👤</div>
-      <div class="bg-icon icon-2">📱</div>
-      <div class="bg-icon icon-3">💻</div>
-      <div class="bg-icon icon-4">📧</div>
-      <div class="bg-icon icon-5">🔑</div>
-      <div class="bg-icon icon-6">⚙️</div>
-      <div class="bg-icon icon-7">📊</div>
-      <div class="bg-icon icon-8">📈</div>
-      <div class="bg-icon icon-9">👑</div>
-      <div class="bg-icon icon-10">🌟</div>
-      <div class="bg-icon icon-11">🚀</div>
-      <div class="bg-icon icon-12">💡</div>
-      <div class="bg-icon icon-13">🎯</div>
-      <div class="bg-icon icon-14">⭐</div>
-      <div class="bg-icon icon-15">🔔</div>
-      <div class="bg-icon icon-16">📝</div>
-      <div class="bg-icon icon-17">🏆</div>
-      <div class="bg-icon icon-18">👍</div>
-      <div class="bg-icon icon-19">📂</div>
-      <div class="bg-icon icon-20">🔍</div>
-    </div>
-    <div className="train-model-container">
-      <h2>Train Fracture Detection Model</h2>
-      
-      <div className="form-section">
-        <div className="input-group">
-          <label htmlFor="dataset">Select Dataset Folder:</label>
-          <input 
-            type="file" 
-            id="dataset" 
-            onChange={handleFileChange} 
-            webkitdirectory="true" 
-            directory="true" 
-            multiple 
-            disabled={isTraining}
-          />
-          <p className="help-text">
-            Select a folder containing your dataset organized as:
-            <br />
-            datasetname/training/fractured/...
-            <br />
-            datasetname/training/non_fractured/...
-            <br />
-            datasetname/testing/fractured/...
-            <br />
-            datasetname/testing/non_fractured/...
-          </p>
-        </div>
-
-        <div className="input-group">
-          <label htmlFor="epochs">Number of Epochs:</label>
-          <input 
-            type="number" 
-            id="epochs" 
-            value={epochs} 
-            onChange={(e) => setEpochs(parseInt(e.target.value))} 
-            min="1" 
-            max="100" 
-            disabled={isTraining}
-          />
-        </div>
-
-        <div className="input-group">
-          <label htmlFor="batchSize">Batch Size:</label>
-          <input 
-            type="number" 
-            id="batchSize" 
-            value={batchSize} 
-            onChange={(e) => setBatchSize(parseInt(e.target.value))} 
-            min="1" 
-            max="128" 
-            disabled={isTraining}
-          />
-        </div>
-
-        <button 
-          className="train-button" 
-          onClick={startTraining} 
-          disabled={isTraining || !selectedDataset}
-        >
-          {isTraining ? "Training in Progress..." : "Start Training"}
-        </button>
+      <div class="icon-background">
+        <div class="bg-icon icon-1">👤</div>
+        <div class="bg-icon icon-2">📱</div>
+        <div class="bg-icon icon-3">💻</div>
+        <div class="bg-icon icon-4">📧</div>
+        <div class="bg-icon icon-5">🔑</div>
+        <div class="bg-icon icon-6">⚙️</div>
+        <div class="bg-icon icon-7">📊</div>
+        <div class="bg-icon icon-8">📈</div>
+        <div class="bg-icon icon-9">👑</div>
+        <div class="bg-icon icon-10">🌟</div>
+        <div class="bg-icon icon-11">🚀</div>
+        <div class="bg-icon icon-12">💡</div>
+        <div class="bg-icon icon-13">🎯</div>
+        <div class="bg-icon icon-14">⭐</div>
+        <div class="bg-icon icon-15">🔔</div>
+        <div class="bg-icon icon-16">📝</div>
+        <div class="bg-icon icon-17">🏆</div>
+        <div class="bg-icon icon-18">👍</div>
+        <div class="bg-icon icon-19">📂</div>
+        <div class="bg-icon icon-20">🔍</div>
       </div>
+      <div 
+          className="back-arrow" 
+          onClick={() => navigate(-1)} 
+          title="Go back to previous page"
+      ></div>
 
-      {errorMessage && (
-        <div className="error-message">
-          {errorMessage}
-        </div>
-      )}
-
-      {isTraining && (
-        <div className="progress-section">
-          <div className="progress-group">
-            <label>Upload Progress:</label>
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: `${uploadProgress}%` }}></div>
-            </div>
-            <span>{uploadProgress}%</span>
+      <div className="train-model-container">
+        <h2 className='text-2xl font-bold mb-6'>Train Fracture Detection Model</h2>
+        
+        <div className="form-section">
+          <div className="input-group">
+            <label htmlFor="dataset">Select Dataset Folder:</label>
+            <input 
+              type="file" 
+              id="dataset" 
+              onChange={handleFileChange} 
+              webkitdirectory="true" 
+              directory="true" 
+              multiple 
+              disabled={isTraining}
+            />
+            <p className="help-text">
+              Select a folder containing your dataset organized as:
+              <br />
+              datasetname/training/fractured/...
+              <br />
+              datasetname/training/non_fractured/...
+              <br />
+              datasetname/testing/fractured/...
+              <br />
+              datasetname/testing/non_fractured/...
+            </p>
           </div>
 
-          <div className="progress-group">
-            <label>Training Progress:</label>
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: `${trainingProgress}%` }}></div>
-            </div>
-            <span>{trainingProgress}%</span>
+          <div className="input-group">
+            <label htmlFor="epochs">Number of Epochs:</label>
+            <input 
+              type="number" 
+              id="epochs" 
+              value={epochs} 
+              onChange={(e) => setEpochs(parseInt(e.target.value))} 
+              min="1" 
+              max="100" 
+              disabled={isTraining}
+            />
           </div>
-        </div>
-      )}
 
-      {trainingSummary && (
-        <div className="training-summary">
-          <h3>Training Results</h3>
-          <table>
-            <tbody>
-              <tr>
-                <td>Training Time:</td>
-                <td>{trainingSummary.training_time} seconds</td>
-              </tr>
-              <tr>
-                <td>Accuracy:</td>
-                <td>{(trainingSummary.accuracy * 100).toFixed(2)}%</td>
-              </tr>
-              <tr>
-                <td>Loss:</td>
-                <td>{trainingSummary.loss.toFixed(4)}</td>
-              </tr>
-              <tr>
-                <td>Precision:</td>
-                <td>{(trainingSummary.precision * 100).toFixed(2)}%</td>
-              </tr>
-              <tr>
-                <td>Recall:</td>
-                <td>{(trainingSummary.recall * 100).toFixed(2)}%</td>
-              </tr>
-              <tr>
-                <td>F1 Score:</td>
-                <td>{(trainingSummary.f1_score * 100).toFixed(2)}%</td>
-              </tr>
-              <tr>
-                <td>Model ID:</td>
-                <td>{trainingSummary.id}</td>
-              </tr>
-            </tbody>
-          </table>
-          
-          <div className="performance-charts">
-          <h3 className='per'>Performance Metrics</h3>
-            
-            <div className="chart-container">
-              <h4>Accuracy</h4>
-              {chartData.accuracy && (
-                <Line 
-                  options={{
-                    ...chartOptions,
-                    plugins: {
-                      ...chartOptions.plugins,
-                      title: {
-                        ...chartOptions.plugins.title,
-                        text: 'Accuracy per Epoch'
-                      }
-                    },
-                    scales: {
-                      y: {
-                        beginAtZero: true,
-                        max: 1,
-                        title: {
-                          display: true,
-                          text: 'Accuracy'
-                        }
-                      }
-                    }
-                  }} 
-                  data={chartData.accuracy} 
-                />
-              )}
-            </div>
-            
-            <div className="chart-container">
-              <h4>Loss</h4>
-              {chartData.loss && (
-                <Line 
-                  options={{
-                    ...chartOptions,
-                    plugins: {
-                      ...chartOptions.plugins,
-                      title: {
-                        ...chartOptions.plugins.title,
-                        text: 'Loss per Epoch'
-                      }
-                    },
-                    scales: {
-                      y: {
-                        beginAtZero: true,
-                        title: {
-                          display: true,
-                          text: 'Loss'
-                        }
-                      }
-                    }
-                  }} 
-                  data={chartData.loss} 
-                />
-              )}
-            </div>
-            
-            {chartData.metrics && (
-              <div className="chart-container">
-                <h4>Other Metrics</h4>
-                <Line 
-                  options={{
-                    ...chartOptions,
-                    plugins: {
-                      ...chartOptions.plugins,
-                      title: {
-                        ...chartOptions.plugins.title,
-                        text: 'Precision, Recall, F1 Score'
-                      }
-                    },
-                    scales: {
-                      y: {
-                        beginAtZero: true,
-                        max: 1,
-                        title: {
-                          display: true,
-                          text: 'Value'
-                        }
-                      }
-                    }
-                  }} 
-                  data={chartData.metrics} 
-                />
+          <div className="input-group">
+            <label htmlFor="batchSize">Batch Size:</label>
+            <input 
+              type="number" 
+              id="batchSize" 
+              value={batchSize} 
+              onChange={(e) => setBatchSize(parseInt(e.target.value))} 
+              min="1" 
+              max="128" 
+              disabled={isTraining}
+            />
+          </div>
+
+          <button 
+            className="train-button" 
+            onClick={startTraining} 
+            disabled={isTraining || !selectedDataset}
+          >
+            {isTraining ? "Training in Progress..." : "Start Training"}
+          </button>
+        </div>
+
+        {errorMessage && (
+          <div className="error-message">
+            {errorMessage}
+          </div>
+        )}
+
+        {isTraining && (
+          <div className="progress-section">
+            <div className="progress-group">
+              <label>Upload Progress:</label>
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${uploadProgress}%` }}></div>
               </div>
-            )}
+              <span>{uploadProgress}%</span>
+            </div>
+
+            <div className="progress-group">
+              <label>Training Progress:</label>
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${trainingProgress}%` }}></div>
+              </div>
+              <span>{trainingProgress}%</span>
+            </div>
           </div>
-        </div>
-      )}
-      <style jsx>{`
-        .train-model-container {
-          padding: 1.5rem;
-          background-color: #f8f9fa;
-          border-radius: 8px;
-          max-width: 800px;
-          margin: 0 auto;
-        }
-        
-        h2 {
-          margin-bottom: 1.5rem;
-          color: #343a40;
-        }
-        
-        .form-section {
-          margin-bottom: 2rem;
-        }
-        
-        .input-group {
-          margin-bottom: 1rem;
-        }
-        
-        label {
-          display: block;
-          margin-bottom: 0.5rem;
-          font-weight: 600;
-        }
-        
-        input[type="number"],
-        input[type="file"] {
-          width: 100%;
-          padding: 0.5rem;
-          border: 1px solid #ced4da;
-          border-radius: 4px;
-          margin-bottom: 0.5rem;
-        }
-        
-        .help-text {
-          font-size: 0.85rem;
-          color: #6c757d;
-          margin-top: 0.25rem;
-        }
-        
-        .train-button {
-          background-color: #007bff;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          padding: 0.75rem 1.5rem;
-          font-size: 1rem;
-          cursor: pointer;
-          transition: background-color 0.2s;
-        }
-        
-        .train-button:hover:not(:disabled) {
-          background-color: #0069d9;
-        }
-        
-        .train-button:disabled {
-          background-color: #6c757d;
-          cursor: not-allowed;
-        }
-        
-        .error-message {
-          color: #dc3545;
-          padding: 0.75rem;
-          margin-bottom: 1rem;
-          background-color: #f8d7da;
-          border: 1px solid #f5c6cb;
-          border-radius: 4px;
-        }
-        
-        .progress-section {
-          margin-bottom: 2rem;
-        }
-        
-        .progress-group {
-          margin-bottom: 1rem;
-        }
-        
-        .progress-bar {
-          height: 1.5rem;
-          background-color: #e9ecef;
-          border-radius: 4px;
-          margin: 0.5rem 0;
-          overflow: hidden;
-        }
-        
-        .progress-fill {
-          height: 100%;
-          background-color: #007bff;
-          transition: width 0.3s ease;
-        }
-        
-        .training-summary {
-          background-color: #fff;
-          border: 1px solid #dee2e6;
-          border-radius: 8px;
-          padding: 1.5rem;
-        }
-        
-        .training-summary h3 {
-          margin-top: 0;
-          margin-bottom: 1rem;
-          color: #343a40;
-        }
-        
-        .training-summary table {
-          width: 100%;
-          border-collapse: collapse;
-        }
-        
-        .training-summary td {
-          padding: 0.5rem;
-          border-bottom: 1px solid #dee2e6;
-        }
-        
-        .training-summary td:first-child {
-          font-weight: 600;
-          width: 40%;
-        }
+        )}
 
-        .training-summary {
-          margin-top: 30px;
-          padding: 20px;
-          background-color: #f8f9fa;
-          border-radius: 8px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .performance-charts {
-          margin-top: 30px;
-        }
-        .per{
-          display: block;
-        }
-        .chart-container {
-          margin-bottom: 30px;
-          padding: 15px;
-          background-color: white;
-          border-radius: 8px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        }
-
-        .chart-container h4 {
-          margin-top: 0;
-          margin-bottom: 15px;
-          color: #333;
-          font-size: 18px;
-        }
-
-    
-
-        /* Progress bars styling */
-        .progress-section {
-          margin: 20px 0;
-        }
-
-        .progress-group {
-          margin-bottom: 15px;
-        }
-
-        .progress-bar {
-          height: 20px;
-          background-color: #e9ecef;
-          border-radius: 4px;
-          overflow: hidden;
-          margin: 8px 0;
-        }
-
-        .progress-fill {
-          height: 100%;
-          background-color: #007bff;
-          transition: width 0.3s ease;
-        }
-
-        /* Table styling */
-        .training-summary table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-bottom: 20px;
-        }
-
-        .training-summary table td {
-          padding: 8px;
-          border-bottom: 1px solid #e9ecef;
-        }
-
-        .training-summary table td:first-child {
-          font-weight: bold;
-          width: 40%;
-        }
-      `}</style>
-    </div>
+        {trainingSummary && (
+          <div className="training-summary">
+            <h3>Training Results</h3>
+            <table>
+              <tbody>
+                <tr>
+                  <td>Training Time:</td>
+                  <td>{trainingSummary.training_time} seconds</td>
+                </tr>
+                <tr>
+                  <td>Accuracy:</td>
+                  <td>{(trainingSummary.accuracy * 100).toFixed(2)}%</td>
+                </tr>
+                <tr>
+                  <td>Loss:</td>
+                  <td>{trainingSummary.loss.toFixed(4)}</td>
+                </tr>
+                <tr>
+                  <td>Precision:</td>
+                  <td>{(trainingSummary.precision * 100).toFixed(2)}%</td>
+                </tr>
+                <tr>
+                  <td>Recall:</td>
+                  <td>{(trainingSummary.recall * 100).toFixed(2)}%</td>
+                </tr>
+                <tr>
+                  <td>F1 Score:</td>
+                  <td>{(trainingSummary.f1_score * 100).toFixed(2)}%</td>
+                </tr>
+                <tr>
+                  <td>Model ID:</td>
+                  <td>{trainingSummary.id}</td>
+                </tr>
+              </tbody>
+            </table>
+            
+            <div className="performance-charts">
+            <h3 className='per'>Performance Metrics</h3>
+              
+              <div className="chart-container">
+                <h4>Accuracy</h4>
+                {chartData.accuracy && (
+                  <Line 
+                    options={{
+                      ...chartOptions,
+                      plugins: {
+                        ...chartOptions.plugins,
+                        title: {
+                          ...chartOptions.plugins.title,
+                          text: 'Accuracy per Epoch'
+                        }
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          max: 1,
+                          title: {
+                            display: true,
+                            text: 'Accuracy'
+                          }
+                        }
+                      }
+                    }} 
+                    data={chartData.accuracy} 
+                  />
+                )}
+              </div>
+              
+              <div className="chart-container">
+                <h4>Loss</h4>
+                {chartData.loss && (
+                  <Line 
+                    options={{
+                      ...chartOptions,
+                      plugins: {
+                        ...chartOptions.plugins,
+                        title: {
+                          ...chartOptions.plugins.title,
+                          text: 'Loss per Epoch'
+                        }
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          title: {
+                            display: true,
+                            text: 'Loss'
+                          }
+                        }
+                      }
+                    }} 
+                    data={chartData.loss} 
+                  />
+                )}
+              </div>
+              
+              {chartData.metrics && (
+                <div className="chart-container">
+                  <h4>Other Metrics</h4>
+                  <Line 
+                    options={{
+                      ...chartOptions,
+                      plugins: {
+                        ...chartOptions.plugins,
+                        title: {
+                          ...chartOptions.plugins.title,
+                          text: 'Precision, Recall, F1 Score'
+                        }
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          max: 1,
+                          title: {
+                            display: true,
+                            text: 'Value'
+                          }
+                        }
+                      }
+                    }} 
+                    data={chartData.metrics} 
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </>
   );
 }

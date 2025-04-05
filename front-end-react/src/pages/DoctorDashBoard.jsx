@@ -67,11 +67,11 @@ function DoctorDashboard() {
       {/* Header */}
       <header className="dashboard-header">
         <div className="logo">
-          <div className="logo-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-            </svg>
-          </div>
+        <div className="footer-logo-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                  </svg>
+                </div>
           <span className="logo-text">BoneDetect AI</span>
         </div>
         <div className="header-actions">
@@ -87,37 +87,63 @@ function DoctorDashboard() {
         ) : (
           <div className="doctor-dashboard">
             <div className="welcome-section">
-              <h1 className="welcome-title">Welcome, Dr. {doctorInfo?.first_name} {doctorInfo?.last_name}</h1>
-              <p className="welcome-subtitle">Access your dashboard to manage bone detection results</p>
-            </div>
+            <h1 className="welcome-title">Welcome, Dr. {doctorInfo?.first_name} {doctorInfo?.last_name}</h1>
+            <p className="welcome-subtitle">Access your dashboard to manage bone detection results</p>
+      </div>
 
-            <div className="doctor-info-card">
-              <h2>Doctor Information</h2>
-              <div className="doctor-info-content">
-                <div className="info-item">
-                  <span className="info-label">Full Name:</span>
-                  <span className="info-value">{doctorInfo?.first_name} {doctorInfo?.other_name ? doctorInfo.other_name + ' ' : ''}{doctorInfo?.last_name}</span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">Username:</span>
-                  <span className="info-value">{doctorInfo?.user_name}</span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">Email:</span>
-                  <span className="info-value">{doctorInfo?.email}</span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">Phone:</span>
-                  <span className="info-value">{doctorInfo?.phone_number}</span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">ID:</span>
-                  <span className="info-value">{doctorInfo?.id}</span>
-                </div>
-              </div>
+      
+      <div className="doctor-info-card">
+        <h2>Doctor Information</h2>
+        <div className="doctor-info-content">
+          <div className="info-item">
+            <div className="info-row">
+              <svg xmlns="http://www.w3.org/2000/svg" className="info-icon" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              <strong className="info-label">Full Name:</strong>
+              <span className="info-value">{doctorInfo?.first_name} {doctorInfo?.last_name} {doctorInfo?.other_name || ''}</span>
             </div>
+          </div>
+          <div className="info-item">
+            <div className="info-row">
+              <svg xmlns="http://www.w3.org/2000/svg" className="info-icon" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+              </svg>
+              <strong className="info-label">Username:</strong>
+              <span className="info-value">{doctorInfo?.user_name}</span>
+            </div>
+          </div>
+          <div className="info-item">
+            <div className="info-row">
+              <svg xmlns="http://www.w3.org/2000/svg" className="info-icon" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <strong className="info-label">Email:</strong>
+              <span className="info-value">{doctorInfo?.email}</span>
+            </div>
+          </div>
+          <div className="info-item">
+            <div className="info-row">
+              <svg xmlns="http://www.w3.org/2000/svg" className="info-icon" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+              <strong className="info-label">Phone:</strong>
+              <span className="info-value">{doctorInfo?.phone_number}</span>
+            </div>
+          </div>
+          <div className="info-item">
+            <div className="info-row">
+              <svg xmlns="http://www.w3.org/2000/svg" className="info-icon" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
+              </svg>
+              <strong className="info-label">ID:</strong>
+              <span className="info-value">{doctorInfo?.id}</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
-            <div className="action-buttons">
+    <div className="action-buttons">
               <button 
                 className="action-button predict-btn" 
                 onClick={handlePredictImage}
@@ -140,11 +166,6 @@ function DoctorDashboard() {
           </div>
         )}
       </div>
-
-      {/* Footer */}
-      <footer className="dashboard-footer">
-        <p className="footer-copyright">© 2025 BoneDetect AI. All rights reserved.</p>
-      </footer>
     </div>
   );
 }

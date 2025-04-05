@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './ViewDoctors.css';
+import { useNavigate } from "react-router-dom";
 
 export default function ViewDoctors() {
+  const navigate = useNavigate();
   const [doctors, setDoctors] = useState([]);
   const [filteredDoctors, setFilteredDoctors] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -164,196 +166,237 @@ export default function ViewDoctors() {
   }
 
   return (
-    <div className="doctors-container">
-      <h1 className="doctors-title">View Doctors</h1>
-      
-      {/* Search Bar */}
-      <div className="search-container">
-        <div className="search-input-wrapper">
-          <input
-            type="text"
-            placeholder="Search by name or username..."
-            value={searchTerm}
-            onChange={handleSearchChange}
-            className="search-input"
-          />
-          {searchTerm && (
-            <button className="clear-search-btn" onClick={clearSearch}>
-              ×
-            </button>
-          )}
+    <>
+      <header className="dashboard-header">
+        <div className="logo">
+        <div className="footer-logo-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                  </svg>
+                </div>
+          <span className="logo-text">BoneDetect AI</span>
         </div>
-        <div className="search-info">
-          {searchTerm && (
-            <p>
-              Found {filteredDoctors.length} {filteredDoctors.length === 1 ? 'doctor' : 'doctors'} 
-              matching '{searchTerm}'
-            </p>
-          )}
-        </div>
+      </header>
+    
+      <div class="icon-background">
+        <div class="bg-icon icon-1">👤</div>
+        <div class="bg-icon icon-2">📱</div>
+        <div class="bg-icon icon-3">💻</div>
+        <div class="bg-icon icon-4">📧</div>
+        <div class="bg-icon icon-5">🔑</div>
+        <div class="bg-icon icon-6">⚙️</div>
+        <div class="bg-icon icon-7">📊</div>
+        <div class="bg-icon icon-8">📈</div>
+        <div class="bg-icon icon-9">👑</div>
+        <div class="bg-icon icon-10">🌟</div>
+        <div class="bg-icon icon-11">🚀</div>
+        <div class="bg-icon icon-12">💡</div>
+        <div class="bg-icon icon-13">🎯</div>
+        <div class="bg-icon icon-14">⭐</div>
+        <div class="bg-icon icon-15">🔔</div>
+        <div class="bg-icon icon-16">📝</div>
+        <div class="bg-icon icon-17">🏆</div>
+        <div class="bg-icon icon-18">👍</div>
+        <div class="bg-icon icon-19">📂</div>
+        <div class="bg-icon icon-20">🔍</div>
       </div>
-      
-      {filteredDoctors.length === 0 ? (
-        <p className="no-doctors">
-          {searchTerm 
-            ? `No doctors found matching '${searchTerm}'.` 
-            : 'No doctors found in the system.'}
-        </p>
-      ) : (
-        <div className="doctors-list">
-          {filteredDoctors.map((doctor) => (
-            <div key={doctor.id} className="doctor-item">
-              <div className="doctor-info">
-                <h3>Dr. {doctor.firstName} {doctor.lastName}</h3>
-                <p><strong>Username:</strong> {doctor.userName}</p>
-                <p><strong>Email:</strong> {doctor.email}</p>
-                <p><strong>Phone:</strong> {doctor.phoneNumber}</p>
-              </div>
-              <div className="doctor-actions">
-                <button 
-                  className="update-btn"
-                  onClick={() => handleUpdateClick(doctor)}
-                >
-                  Update
-                </button>
-                <button 
-                  className="delete-btn"
-                  onClick={() => handleDeleteClick(doctor)}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <div 
+          className="back-arrow" 
+          onClick={() => navigate(-1)} 
+          title="Go back to previous page"
+      ></div>
 
-      {/* Delete Confirmation Dialog */}
-      {showDeleteConfirmation && doctorToDelete && (
-        <div className="modal-overlay">
-          <div className="modal-dialog">
-            <h2>Confirm Deletion</h2>
-            <p>
-              Are you sure you want to delete Dr. {doctorToDelete.firstName} {doctorToDelete.lastName}?
-              This action cannot be undone.
-            </p>
-            <div className="modal-actions">
-              <button className="cancel-btn" onClick={cancelDelete}>
-                No, Cancel
+      <div className="doctors-container">
+        <h1 className="doctors-title text-2xl font-bold mb-6">View Doctors</h1>
+        
+        {/* Search Bar */}
+        <div className="search-container">
+          <div className="search-input-wrapper">
+            <input
+              type="text"
+              placeholder="Search by name or username..."
+              value={searchTerm}
+              onChange={handleSearchChange}
+              className="search-input"
+            />
+            {searchTerm && (
+              <button className="clear-search-btn" onClick={clearSearch}>
+                ×
               </button>
-              <button className="confirm-btn" onClick={confirmDelete}>
-                Yes, Delete
-              </button>
-            </div>
+            )}
+          </div>
+          <div className="search-info">
+            {searchTerm && (
+              <p>
+                Found {filteredDoctors.length} {filteredDoctors.length === 1 ? 'doctor' : 'doctors'} 
+                matching '{searchTerm}'
+              </p>
+            )}
           </div>
         </div>
-      )}
+        
+        {filteredDoctors.length === 0 ? (
+          <p className="no-doctors">
+            {searchTerm 
+              ? `No doctors found matching '${searchTerm}'.` 
+              : 'No doctors found in the system.'}
+          </p>
+        ) : (
+          <div className="doctors-list">
+            {filteredDoctors.map((doctor) => (
+              <div key={doctor.id} className="doctor-item">
+                <div className="doctor-info">
+                  <h3>Dr. {doctor.firstName} {doctor.lastName}</h3>
+                  <p><strong>Username:</strong> {doctor.userName}</p>
+                  <p><strong>Email:</strong> {doctor.email}</p>
+                  <p><strong>Phone:</strong> {doctor.phoneNumber}</p>
+                </div>
+                <div className="doctor-actions">
+                  <button 
+                    className="update-btn"
+                    onClick={() => handleUpdateClick(doctor)}
+                  >
+                    Update
+                  </button>
+                  <button 
+                    className="delete-btn"
+                    onClick={() => handleDeleteClick(doctor)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
-      {/* Update Form Dialog */}
-      {showUpdateForm && doctorToUpdate && (
-        <div className="modal-overlay">
-          <div className="modal-dialog update-form-dialog">
-            <h2>Update Doctor Information</h2>
-            {updateError && <div className="form-error">{updateError}</div>}
-            <form onSubmit={submitUpdate}>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="firstName">First Name</label>
-                  <input
-                    type="text"
-                    id="firstName"
-                    name="firstName"
-                    value={updateFormData.firstName}
-                    onChange={handleUpdateInputChange}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="lastName">Last Name</label>
-                  <input
-                    type="text"
-                    id="lastName"
-                    name="lastName"
-                    value={updateFormData.lastName}
-                    onChange={handleUpdateInputChange}
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="otherName">Other Name (Optional)</label>
-                <input
-                  type="text"
-                  id="otherName"
-                  name="otherName"
-                  value={updateFormData.otherName}
-                  onChange={handleUpdateInputChange}
-                />
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="userName">Username</label>
-                <input
-                  type="text"
-                  id="userName"
-                  name="userName"
-                  value={updateFormData.userName}
-                  onChange={handleUpdateInputChange}
-                  required
-                />
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="phoneNumber">Phone Number</label>
-                <input
-                  type="tel"
-                  id="phoneNumber"
-                  name="phoneNumber"
-                  value={updateFormData.phoneNumber}
-                  onChange={handleUpdateInputChange}
-                  required
-                />
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="email">Email</label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={updateFormData.email}
-                  onChange={handleUpdateInputChange}
-                  required
-                />
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="password">
-                  Password (Leave empty to keep current password)
-                </label>
-                <input
-                  type="password"
-                  id="password"
-                  name="password"
-                  value={updateFormData.password}
-                  onChange={handleUpdateInputChange}
-                  placeholder="Enter new password or leave empty"
-                />
-              </div>
-              
+        {/* Delete Confirmation Dialog */}
+        {showDeleteConfirmation && doctorToDelete && (
+          <div className="modal-overlay">
+            <div className="modal-dialog">
+              <h2>Confirm Deletion</h2>
+              <p>
+                Are you sure you want to delete Dr. {doctorToDelete.firstName} {doctorToDelete.lastName}?
+                This action cannot be undone.
+              </p>
               <div className="modal-actions">
-                <button type="button" className="cancel-btn" onClick={cancelUpdate}>
-                  Cancel
+                <button className="cancel-btn" onClick={cancelDelete}>
+                  No, Cancel
                 </button>
-                <button type="submit" className="confirm-btn">
-                  Save Changes
+                <button className="confirm-btn" onClick={confirmDelete}>
+                  Yes, Delete
                 </button>
               </div>
-            </form>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+
+        {/* Update Form Dialog */}
+        {showUpdateForm && doctorToUpdate && (
+          <div className="modal-overlay">
+            <div className="modal-dialog update-form-dialog">
+              <h2>Update Doctor Information</h2>
+              {updateError && <div className="form-error">{updateError}</div>}
+              <form onSubmit={submitUpdate}>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="firstName">First Name</label>
+                    <input
+                      type="text"
+                      id="firstName"
+                      name="firstName"
+                      value={updateFormData.firstName}
+                      onChange={handleUpdateInputChange}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="lastName">Last Name</label>
+                    <input
+                      type="text"
+                      id="lastName"
+                      name="lastName"
+                      value={updateFormData.lastName}
+                      onChange={handleUpdateInputChange}
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="otherName">Other Name (Optional)</label>
+                  <input
+                    type="text"
+                    id="otherName"
+                    name="otherName"
+                    value={updateFormData.otherName}
+                    onChange={handleUpdateInputChange}
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="userName">Username</label>
+                  <input
+                    type="text"
+                    id="userName"
+                    name="userName"
+                    value={updateFormData.userName}
+                    onChange={handleUpdateInputChange}
+                    required
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="phoneNumber">Phone Number</label>
+                  <input
+                    type="tel"
+                    id="phoneNumber"
+                    name="phoneNumber"
+                    value={updateFormData.phoneNumber}
+                    onChange={handleUpdateInputChange}
+                    required
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="email">Email</label>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={updateFormData.email}
+                    onChange={handleUpdateInputChange}
+                    required
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="password">
+                    Password (Leave empty to keep current password)
+                  </label>
+                  <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    value={updateFormData.password}
+                    onChange={handleUpdateInputChange}
+                    placeholder="Enter new password or leave empty"
+                  />
+                </div>
+                
+                <div className="modal-actions">
+                  <button type="button" className="cancel-btn" onClick={cancelUpdate}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="confirm-btn">
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

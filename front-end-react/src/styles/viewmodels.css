@@ -231,7 +231,13 @@
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
   }
-  
+  h1.text-2xl {
+    color: var(--primary);
+    font-size: 1.65rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+    padding-bottom: 0.75rem;
+  }
   /* Button styles */
   .activate-button {
     background-color: #3498db;
@@ -283,4 +289,20 @@
   /* Active model row styling */
   .active-model {
     background-color: rgba(39, 174, 96, 0.1);
+  }
+
+  .progress-bar-container {
+    width: 100%;
+    background-color: #f1f1f1;
+    border-radius: 4px;
+    margin: 10px 0;
+    height: 10px;
+    overflow: hidden;
+  }
+  
+  .progress-bar {
+    height: 100%;
+    background-color: #4CAF50;
+    border-radius: 4px;
+    transition: width 0.2s ease;
   }

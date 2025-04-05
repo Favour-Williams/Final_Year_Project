@@ -2,11 +2,13 @@
 .predict-xray-container {
     max-width: 900px;
     margin: 0 auto;
-    padding: 2rem;
+    padding: 1rem;
     background-color: var(--white);
     border-radius: 0.75rem;
     box-shadow: var(--card-shadow);
     transition: var(--transition-standard);
+    margin-top: 20px;
+    margin-bottom: 20px;
   }
   
   .predict-xray-container:hover {
@@ -181,7 +183,7 @@
 
 .history-link {
   display: inline-block;
-  background-color: #4a90e2;
+  background-color: #6d67e8;
   color: white;
   text-decoration: none;
   padding: 8px 16px;
@@ -191,7 +193,7 @@
 }
 
 .history-link:hover {
-  background-color: #3a7bc8;
+  background-color: #4d46d4;
   text-decoration: none;
 }
 

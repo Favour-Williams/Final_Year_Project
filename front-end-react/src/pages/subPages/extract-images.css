@@ -33,13 +33,23 @@
 }
 
 .filter-controls button.active {
-  background-color: #4a90e2;
+  background-color: #71079e;
   color: white;
   border-color: #3a80d2;
 }
 
+.filter-controls button.active[data-type="fractured"] {
+  background-color: #e74c3c; 
+  border-color: #c0392b;
+}
+
+.filter-controls button.active[data-type="no-fracture"] {
+  background-color: #2ecc71; 
+  border-color: #27ae60;
+}
+
 .filter-controls button:hover:not(.active) {
-  background-color: #e0e0e0;
+  background-color: #d0d0d0;
 }
 
 .stats-summary {
@@ -173,7 +183,14 @@
   }
 }
 
-/* Add these styles to your extract-images.css file */
+h1.text-2xl {
+  color: var(--primary);
+  font-size: 1.75rem;
+  margin-top: 20px;
+  position: relative;
+  padding-bottom: 0.5rem;
+}
+
 
 /* Extract Button */
 .extract-button {
