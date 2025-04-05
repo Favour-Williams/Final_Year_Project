@@ -318,7 +318,9 @@ body {
   text-decoration: underline;
   color: var(--primary-dark);
 }
-
+input[name="userName"]{
+  padding-left: 0;
+}
 /* Adjust spacing for mobile */
 @media (max-width: 640px) {
   .input-group {

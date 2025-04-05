@@ -112,7 +112,7 @@ function AdminDashboard() {
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
               <circle cx="12" cy="7" r="4"></circle>
             </svg>
-            <h2>Admin Profile</h2>
+            <h3>Admin Profile</h3>
           </div>
           {adminData && (
             <div className="profile-details">
@@ -156,7 +156,7 @@ function AdminDashboard() {
               <line x1="16" y1="17" x2="8" y2="17"></line>
               <polyline points="10 9 9 9 8 9"></polyline>
             </svg>
-            <h2>Admin Actions</h2>
+            <h3>Admin Actions</h3>
           </div>
           <div className="action-buttons">
             <button onClick={handleCreateUser} className="action-button create-user">
