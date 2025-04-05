@@ -1,8 +1,8 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import '../../styles/sortfile.css'
-import { useLocation } from 'react-router-dom';
-
+import { useNavigate, useLocation } from 'react-router-dom';
 export default function SortFile() {
+  const navigate = useNavigate();
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -157,187 +157,234 @@ export default function SortFile() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow-md">
-      <h1 className="text-2xl font-bold mb-6">Sort X-ray Images</h1>
-      
-      <form ref={formRef} onSubmit={handleSubmit} className="mb-6">
-        <div className="mb-4">
-          <label className="block mb-2 font-medium">Upload X-ray Images Folder</label>
-          <input 
-            type="file" 
-            webkitdirectory="true"
-            directory="true"
-            multiple
-            onChange={handleFileChange}
-            className="block w-full border border-gray-300 rounded px-3 py-2"
-          />
-          {selectedFiles.length > 0 && (
-            <div className="mt-2 text-sm text-gray-600">
-              {selectedFiles.length} files selected
-            </div>
-          )}
+    <>
+      <header className="dashboard-header">
+        <div className="logo">
+        <div className="footer-logo-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                  </svg>
+                </div>
+          <span className="logo-text">BoneDetect AI</span>
         </div>
+      </header>
+
+      <div class="icon-background">
+        <div class="bg-icon icon-1">👤</div>
+        <div class="bg-icon icon-2">📱</div>
+        <div class="bg-icon icon-3">💻</div>
+        <div class="bg-icon icon-4">📧</div>
+        <div class="bg-icon icon-5">🔑</div>
+        <div class="bg-icon icon-6">⚙️</div>
+        <div class="bg-icon icon-7">📊</div>
+        <div class="bg-icon icon-8">📈</div>
+        <div class="bg-icon icon-9">👑</div>
+        <div class="bg-icon icon-10">🌟</div>
+        <div class="bg-icon icon-11">🚀</div>
+        <div class="bg-icon icon-12">💡</div>
+        <div class="bg-icon icon-13">🎯</div>
+        <div class="bg-icon icon-14">⭐</div>
+        <div class="bg-icon icon-15">🔔</div>
+        <div class="bg-icon icon-16">📝</div>
+        <div class="bg-icon icon-17">🏆</div>
+        <div class="bg-icon icon-18">👍</div>
+        <div class="bg-icon icon-19">📂</div>
+        <div class="bg-icon icon-20">🔍</div>
+      </div>
+
+      <div 
+        className="back-arrow" 
+        onClick={() => navigate(-1)} 
+        title="Go back to previous page"
+      ></div>
+      <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow-md">
+        <h1 className="text-2xl font-bold mb-6">Sort X-ray Images</h1>
         
-        {/* Add threshold slider */}
-        <div className="mb-4">
-          <label className="block mb-2 font-medium">
-            Fracture Detection Threshold: {threshold}
-          </label>
-          <input
-            type="range"
-            min="0.1"
-            max="0.9"
-            step="0.05"
-            value={threshold}
-            onChange={(e) => setThreshold(parseFloat(e.target.value))}
-            className="w-full"
-          />
-          <div className="flex justify-between text-xs text-gray-500">
-            <span>More Sensitive (0.1)</span>
-            <span>More Specific (0.9)</span>
+        <form ref={formRef} onSubmit={handleSubmit} className="mb-6">
+          <div className="mb-4">
+            <label className="block mb-2 font-medium">Upload X-ray Images Folder</label>
+            <input 
+              type="file" 
+              webkitdirectory="true"
+              directory="true"
+              multiple
+              onChange={handleFileChange}
+              className="block w-full border border-gray-300 rounded px-3 py-2"
+            />
+            {selectedFiles.length > 0 && (
+              <div className="mt-2 text-sm text-gray-600">
+                {selectedFiles.length} files selected
+              </div>
+            )}
           </div>
-        </div>
-        
-        <div className="flex gap-3">
-          <button 
-            type="submit" 
-            disabled={isUploading || isProcessing || selectedFiles.length === 0}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-blue-300"
-          >
-            {isUploading ? "Uploading..." : isProcessing ? "Processing..." : "Process Files"}
-          </button>
           
-          {(downloadUrl || error) && (
+          {/* Add threshold slider */}
+          <div className="mb-4">
+            <label className="block mb-2 font-medium">
+              Fracture Detection Threshold: {threshold}
+            </label>
+            <input
+              type="range"
+              min="0.1"
+              max="0.9"
+              step="0.05"
+              value={threshold}
+              onChange={(e) => setThreshold(parseFloat(e.target.value))}
+              className="w-full"
+            />
+            <div className="flex justify-between text-xs text-gray-500">
+              <span>More Sensitive (0.1)</span>
+              <span>More Specific (0.9)</span>
+            </div>
+          </div>
+          
+          <div className="flex gap-3">
             <button 
-              type="button"
-              onClick={resetForm}
-              className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
+              type="submit" 
+              disabled={isUploading || isProcessing || selectedFiles.length === 0}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-blue-300"
             >
-              Start New Batch
+              {isUploading ? "Uploading..." : isProcessing ? "Processing..." : "Process Files"}
             </button>
-          )}
-        </div>
-      </form>
-
-      {error && (
-        <div className="p-3 bg-red-100 text-red-700 rounded mb-4">
-          {error}
-        </div>
-      )}
-
-      {/* Upload Progress */}
-      {isUploading && (
-        <div className="mb-6">
-          <h2 className="font-medium mb-2">Uploading Files...</h2>
-          <div className="w-full bg-gray-200 rounded-full h-4">
-            <div 
-              className="bg-blue-600 h-4 rounded-full transition-all duration-300" 
-              style={{ width: `${uploadProgress}%` }}
-            ></div>
+            
+            {(downloadUrl || error) && (
+              <button 
+                type="button"
+                onClick={resetForm}
+                className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
+              >
+                Start New Batch
+              </button>
+            )}
           </div>
-          <div className="text-sm text-gray-600 mt-1">
-            {uploadProgress}% complete
-          </div>
-        </div>
-      )}
+        </form>
 
-      {/* Processing Progress */}
-      {isProcessing && (
-        <div className="mb-6">
-          <h2 className="font-medium mb-2">Processing X-ray Images...</h2>
-          <div className="w-full bg-gray-200 rounded-full h-4">
-            <div 
-              className="bg-green-600 h-4 rounded-full transition-all duration-300" 
-              style={{ width: `${processingProgress}%` }}
-            ></div>
+        {error && (
+          <div className="p-3 bg-red-100 text-red-700 rounded mb-4">
+            {error}
           </div>
-          <div className="text-sm text-gray-600 mt-1">
-            {processingProgress}% complete
-          </div>
-        </div>
-      )}
+        )}
 
-      {/* Download Section with Enhanced Stats */}
-      {downloadUrl && (
-        <div className="p-4 border border-green-200 bg-green-50 rounded-lg">
-          <h2 className="font-medium text-lg mb-3">Processing Complete!</h2>
-          
-          {stats && (
-            <div className="mb-4 grid grid-cols-3 gap-4">
-              <div className="p-3 bg-white rounded shadow-sm">
-                <div className="text-sm text-gray-600">Fractures Detected</div>
-                <div className="text-xl font-bold">{stats.fracture_count}</div>
-                <div className="text-xs text-gray-500">
-                  {stats.total > 0 ? `(${(stats.fracture_count / stats.total * 100).toFixed(1)}%)` : '0%'}
-                </div>
-              </div>
-              <div className="p-3 bg-white rounded shadow-sm">
-                <div className="text-sm text-gray-600">No Fractures</div>
-                <div className="text-xl font-bold">{stats.no_fracture_count}</div>
-                <div className="text-xs text-gray-500">
-                  {stats.total > 0 ? `(${(stats.no_fracture_count / stats.total * 100).toFixed(1)}%)` : '0%'}
-                </div>
-              </div>
-              <div className="p-3 bg-white rounded shadow-sm">
-                <div className="text-sm text-gray-600">Located Fractures</div>
-                <div className="text-xl font-bold">{stats.located_count || 0}</div>
-                <div className="text-xs text-gray-500">
-                  {stats.fracture_count > 0 ? `(${((stats.located_count || 0) / stats.fracture_count * 100).toFixed(1)}%)` : '0%'}
-                </div>
-              </div>
-              <div className="p-3 bg-white rounded shadow-sm">
-                <div className="text-sm text-gray-600">Total Processed</div>
-                <div className="text-xl font-bold">{stats.total}</div>
-              </div>
-              <div className="p-3 bg-white rounded shadow-sm">
-                <div className="text-sm text-gray-600">Processing Time</div>
-                <div className="text-xl font-bold">{stats.processing_time.toFixed(2)}s</div>
-                <div className="text-xs text-gray-500">
-                  {stats.total > 0 ? `(${(stats.processing_time / stats.total * 1000).toFixed(1)}ms per image)` : '0ms'}
-                </div>
-              </div>
-              <div className="p-3 bg-white rounded shadow-sm">
-                <div className="text-sm text-gray-600">Threshold</div>
-                <div className="text-xl font-bold">{stats.threshold}</div>
-              </div>
-              
-              {/* Model info if available */}
-              {stats.model && stats.model.model_accuracy && (
-                <div className="p-3 bg-white rounded shadow-sm col-span-3">
-                  <div className="text-sm text-gray-600">Model Info</div>
-                  <div className="text-sm">
-                    <span className="font-medium">Accuracy:</span> {stats.model.model_accuracy}% | 
-                    <span className="font-medium ml-2">F1 Score:</span> {stats.model.model_f1 || 'N/A'}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    Using model #{stats.model.model_id} from {stats.model.model_timestamp}
-                  </div>
-                </div>
-              )}
+        {/* Upload Progress */}
+        {isUploading && (
+          <div className="mb-6">
+            <h2 className="font-medium mb-2">Uploading Files...</h2>
+            <div className="w-full bg-gray-200 rounded-full h-4">
+              <div 
+                className="bg-blue-600 h-4 rounded-full transition-all duration-300" 
+                style={{ width: `${uploadProgress}%` }}
+              ></div>
             </div>
-          )}
-          
-          <div className="mb-3 p-3 bg-white rounded shadow-sm">
-            <h3 className="font-medium mb-2">Download Results</h3>
-            <p className="text-sm text-gray-600 mb-3">
-              The ZIP file contains three folders:
-            </p>
-            <ul className="text-sm text-gray-600 list-disc pl-5 mb-3">
-              <li><span className="font-medium">fracture</span> - All detected fracture images</li>
-              <li><span className="font-medium">no_fracture</span> - All images with no fractures</li>
-              <li><span className="font-medium">location</span> - Fracture images with highlighted fracture locations</li>
-            </ul>
+            <div className="text-sm text-gray-600 mt-1">
+              {uploadProgress}% complete
+            </div>
           </div>
-          
-          <a 
-            href={downloadUrl} 
-            download="sorted_xrays.zip"
-            className="block w-full text-center bg-green-600 text-white px-4 py-3 rounded hover:bg-green-700"
-          >
-            Download Sorted Images (ZIP)
-          </a>
-        </div>
-      )}
-    </div>
+        )}
+
+        {/* Processing Progress */}
+        {isProcessing && (
+          <div className="mb-6">
+            <h2 className="font-medium mb-2">Processing X-ray Images...</h2>
+            <div className="w-full bg-gray-200 rounded-full h-4">
+              <div 
+                className="bg-green-600 h-4 rounded-full transition-all duration-300" 
+                style={{ width: `${processingProgress}%` }}
+              ></div>
+            </div>
+            <div className="text-sm text-gray-600 mt-1">
+              {processingProgress}% complete
+            </div>
+          </div>
+        )}
+
+        {/* Download Section with Enhanced Stats */}
+        {downloadUrl && (
+          <div className="download-section">
+            <div className="section-header">
+              <h2>Processing Complete!</h2>
+            </div>
+            
+            {stats && (
+              <div className="stats-grid">
+                <div className="stat-card fracture">
+                  <div className="stat-label">Fractures Detected</div>
+                  <div className="stat-value">{stats.fracture_count}</div>
+                  <div className="stat-percentage">
+                    {stats.total > 0 ? `(${(stats.fracture_count / stats.total * 100).toFixed(1)}%)` : '0%'}
+                  </div>
+                </div>
+                <div className="stat-card no-fracture">
+                  <div className="stat-label">No Fractures</div>
+                  <div className="stat-value">{stats.no_fracture_count}</div>
+                  <div className="stat-percentage">
+                    {stats.total > 0 ? `(${(stats.no_fracture_count / stats.total * 100).toFixed(1)}%)` : '0%'}
+                  </div>
+                </div>
+                <div className="stat-card located">
+                  <div className="stat-label">Located Fractures</div>
+                  <div className="stat-value">{stats.located_count || 0}</div>
+                  <div className="stat-percentage">
+                    {stats.fracture_count > 0 ? `(${((stats.located_count || 0) / stats.fracture_count * 100).toFixed(1)}%)` : '0%'}
+                  </div>
+                </div>
+                <div className="stat-card total">
+                  <div className="stat-label">Total Processed</div>
+                  <div className="stat-value">{stats.total}</div>
+                </div>
+                <div className="stat-card time">
+                  <div className="stat-label">Processing Time</div>
+                  <div className="stat-value">{stats.processing_time.toFixed(2)}s</div>
+                  <div className="stat-percentage">
+                    {stats.total > 0 ? `(${(stats.processing_time / stats.total * 1000).toFixed(1)}ms per image)` : '0ms'}
+                  </div>
+                </div>
+                <div className="stat-card threshold">
+                  <div className="stat-label">Threshold</div>
+                  <div className="stat-value">{stats.threshold}</div>
+                </div>
+                
+                {/* Model info if available */}
+                {stats.model && stats.model.model_accuracy && (
+                  <div className="stat-card model">
+                    <div className="stat-label">Model Info</div>
+                    <div className="model-info">
+                      <div className="model-info-item">
+                        <span className="model-info-label">Accuracy:</span>
+                        <span className="model-info-value">{stats.model.model_accuracy}%</span>
+                      </div>
+                      <div className="model-info-item">
+                        <span className="model-info-label">F1 Score:</span>
+                        <span className="model-info-value">{stats.model.model_f1 || 'N/A'}</span>
+                      </div>
+                      <div className="model-info-item text-xs text-gray-500">
+                        Using model #{stats.model.model_id} from {stats.model.model_timestamp}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            <div className="download-instructions">
+              <h3>Download Results</h3>
+              <p>The ZIP file contains three folders:</p>
+              <ul className="folder-list">
+                <li><span className="folder-name">fracture</span> - All detected fracture images</li>
+                <li><span className="folder-name">no_fracture</span> - All images with no fractures</li>
+                <li><span className="folder-name">location</span> - Fracture images with highlighted fracture locations</li>
+              </ul>
+            </div>
+            
+            <a 
+              href={downloadUrl} 
+              download="sorted_xrays.zip"
+              className="download-button"
+            >
+              <span>Download Sorted Images (ZIP)</span>
+            </a>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

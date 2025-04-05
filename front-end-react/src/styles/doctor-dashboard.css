@@ -1,28 +1,11 @@
-:root {
-  --primary: #4299e1;
-  --primary-dark: #3182ce;
-  --primary-light: #ebf8ff;
-  --secondary: #38a169;
-  --secondary-dark: #2f855a;
-  --text-dark: #2d3748;
-  --text-medium: #4a5568;
-  --text-light: #718096;
-  --background: #f5f5f7;
-  --white: #ffffff;
-  --error: #e53e3e;
-  --error-dark: #c53030;
-  --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --hover-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --transition: all 0.3s ease;
-}
 
 .dashboard-container {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--primary-light);
 }
-
 .dashboard-header {
   display: flex;
   justify-content: space-between;
@@ -149,15 +132,11 @@
 
 .info-item {
   padding: 0.75rem;
-  background-color: #f7fafc;
+  background-color: var(--primary-light);
   border-radius: 6px;
   transition: var(--transition);
 }
 
-.info-item:hover {
-  background-color: #edf2f7;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
 
 .info-row {
   display: flex;
@@ -246,7 +225,7 @@
 }
 
 .sort-btn:hover {
-  background-color: var(--secondary-dark);
+  background-color: var(--primary-dark);
 }
 
 .action-icon {
