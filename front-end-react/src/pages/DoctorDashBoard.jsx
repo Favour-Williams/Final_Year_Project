@@ -93,7 +93,6 @@ function DoctorDashboard() {
           <div className="doctor-dashboard">
             <div className="welcome-section">
             <h1 className="welcome-title">Welcome, Dr. {doctorInfo?.first_name} {doctorInfo?.last_name}</h1>
-            <p className="welcome-subtitle">Access your dashboard to manage bone detection results</p>
       </div>
 
       
