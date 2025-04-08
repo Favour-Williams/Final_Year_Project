@@ -1,28 +1,4 @@
-:root {
-    --primary: #4f46e5;
-    --primary-dark: #4338ca;
-    --primary-light: #eef2ff;
-    --secondary: #6366f1;
-    --text-dark: #1f2937;
-    --text-medium: #4b5563;
-    --text-light: #9ca3af;
-    --white: #ffffff;
-    --success: #10b981;
-    --background: #f9fafb;
-    --card-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    --button-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    --hover-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    --blue-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3);
-    --transition-standard: all 0.3s ease;
-    --transition-slow: all 0.5s ease;
-}
-body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-    margin: 0;
-    padding: 0;
-    color: var(--text-dark);
-    background: linear-gradient(135deg, #f0f4ff 0%, #ebf1ff 100%);
-}
+
 .nav {
   background-color: var(--white);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
@@ -126,8 +102,8 @@ body {
 
   /* Login Form Container */
 .login-container {
-    max-width: 450px;
-    margin: 3rem auto 6rem;
+    max-width: 650px;
+    margin: 1.5rem auto 2rem;
     padding: 2.5rem;
     background-color: var(--white);
     border-radius: 1rem;
@@ -141,7 +117,6 @@ body {
   .login-title {
     color: var(--text-dark);
     text-align: center;
-    margin-bottom: 2rem;
     font-size: 1.75rem;
     font-weight: 700;
   }
@@ -159,12 +134,12 @@ body {
     display: flex;
     flex-direction: column;
     width: 100%;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.3rem;
   }
   
   .input-label {
     font-weight: 500;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.2rem;
     color: var(--text-medium);
     font-size: 0.95rem;
   }
@@ -193,7 +168,7 @@ body {
   /* Forgot Password Link */
   .forgot-password-link {
     text-align: right;
-    margin: 0.5rem 0 1.5rem;
+   
   }
   
   .forgot-password-link a {
@@ -211,7 +186,7 @@ body {
   /* Login Button */
   .login-button {
     width: 100%;
-    margin-top: 1rem;
+    margin-top: 0.001rem;
     padding: 0.75rem 1.5rem;
     font-size: 1rem;
   }
@@ -238,7 +213,7 @@ body {
 .input-label {
   display: block;
   font-weight: 500;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.2rem;
   color: var(--text-medium);
   font-size: 0.95rem;
 }
@@ -272,10 +247,6 @@ body {
   flex-direction: column;
 }
 
-.login-form .input-group:first-child {
-  margin-top: 0.5rem;
-}
-
 /* Error State Styling */
 .input-field.error {
   border-color: #ef4444;
@@ -304,7 +275,7 @@ body {
 /* Forgot Password Link Styling */
 .forgot-password-link {
   text-align: right;
-  margin: 0.25rem 0 1.75rem;
+  margin: 0.25rem 0 1rem;
   font-size: 0.875rem;
 }
 
@@ -318,9 +289,7 @@ body {
   text-decoration: underline;
   color: var(--primary-dark);
 }
-input[name="userName"]{
-  padding-left: 0;
-}
+
 /* Adjust spacing for mobile */
 @media (max-width: 640px) {
   .input-group {
