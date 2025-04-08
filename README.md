@@ -130,7 +130,7 @@ npm run dev
 ## **🎉 Success!**  
 You should now have:  
 ✅ **Flask Backend** running on `http://localhost:5000`  
-✅ **React Frontend** running on `http://localhost:3000`  
+✅ **React Frontend** running on `http://localhost:3000` or `http://localhost:5173`  
 
 Open your browser and start detecting bone fractures! 🚑  
 
