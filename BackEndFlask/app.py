@@ -12,21 +12,16 @@ import base64
 import zipfile
 import sqlite3
 import tempfile
-import datetime
 import threading
 import traceback
 import numpy as np
 import tensorflow as tf
 from flask_cors import CORS
 from tempfile import mkdtemp
-from threading import Thread
-from datetime import datetime
-import matplotlib.pyplot as plt
-from flask_migrate import Migrate
+from datetime import datetime, timedelta
 from flask_mail import Mail, Message
 from contextlib import contextmanager
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 from flask import Flask, request, jsonify, send_file
 from sklearn.metrics import precision_score, recall_score, f1_score
@@ -723,10 +718,7 @@ def load_active_model():
                 
                 # Function to extract model from blob
                 def load_model_from_blob(blob_data):
-                    import io
-                    import zipfile
-                    import tempfile
-                    import shutil
+                    
                     
                     # Create temporary directory
                     temp_dir = tempfile.mkdtemp()
@@ -785,7 +777,7 @@ def load_active_model():
                 return False
                 
         except Exception as e:
-            import traceback
+            
             print(f"Error loading active model: {str(e)}")
             print(traceback.format_exc())
             return False
@@ -1537,8 +1529,7 @@ def cleanup_old_sessions():
         del processing_sessions[session_id]
 
 # Setup periodic cleanup
-import threading
-import time
+
 
 def cleanup_thread():
     while True:
@@ -1722,7 +1713,7 @@ def train_model():
         batch_size = int(request.form.get('batch_size', 32))
         
         # Start training in a background thread to avoid blocking the response
-        import threading
+       
         training_thread = threading.Thread(
             target=run_training_process,
             args=(dataset_path, epochs, batch_size)
@@ -1803,7 +1794,7 @@ def run_training_process(dataset_path, epochs, batch_size):
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             
             # Create a temporary directory for saving models
-            import tempfile
+         
             temp_dir = tempfile.mkdtemp()
             
             # Save models to temporary directory
@@ -1814,9 +1805,7 @@ def run_training_process(dataset_path, epochs, batch_size):
             feature_model.save(temp_feature_model_path)
             
             # Serialize models to blobs using TensorFlow's SavedModel format
-            import io
-            import zipfile
-            
+
             # Function to zip a directory into a bytes object
             def zip_directory_to_bytes(directory):
                 bytes_io = io.BytesIO()
@@ -1908,7 +1897,7 @@ def run_training_process(dataset_path, epochs, batch_size):
             }
             
         except Exception as e:
-            import traceback
+           
             print(f"Training error: {str(e)}")
             print(traceback.format_exc())
             
@@ -1964,7 +1953,7 @@ def delete_model(model_id):
         
         return jsonify({'success': True, 'message': f'Model {model_id} deleted successfully'})
     except Exception as e:
-        import traceback
+        
         print(f"Error deleting model {model_id}: {str(e)}")
         print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
@@ -2008,7 +1997,7 @@ def activate_model(model_id):
                 print(f"Background model loading completed: {'success' if success else 'failed'}")
         
         # Start the background thread
-        import threading
+       
         thread = threading.Thread(target=load_model_in_background)
         thread.daemon = True
         thread.start()
@@ -2016,7 +2005,7 @@ def activate_model(model_id):
         # Return success response immediately
         return jsonify({'success': True, 'message': f'Model {model_id} activation in progress'})
     except Exception as e:
-        import traceback
+       
         print(f"Error activating model {model_id}: {str(e)}")
         print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
