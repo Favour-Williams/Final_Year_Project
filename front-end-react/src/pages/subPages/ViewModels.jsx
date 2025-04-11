@@ -118,6 +118,13 @@ export default function ViewModels() {
     return date.toISOString().split('T')[0]; // YYYY-MM-DD format
   };
 
+  // Format metrics to display with 2 decimal places and percentage
+  const formatMetric = (value) => {
+    return value !== null && value !== undefined 
+      ? `${(value * 100).toFixed(2)}%` 
+      : 'N/A';
+  };
+
   return (
     <>
       <header className="dashboard-header">
@@ -191,10 +198,12 @@ export default function ViewModels() {
               <tr>
                 <th>Model ID</th>
                 <th>Date Created</th>
-                <th>Main Model</th>
-                <th>Feature Model</th>
+                <th>Epochs</th>
                 <th>Accuracy</th>
                 <th>Loss</th>
+                <th>Precision</th>
+                <th>Recall</th>
+                <th>F1 Score</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -204,10 +213,12 @@ export default function ViewModels() {
                 <tr key={model.id} className={model.is_active ? 'active-model' : ''}>
                   <td>{model.id}</td>
                   <td>{formatDate(model.timestamp)}</td>
-                  <td>{model.main_model_filename || 'main_model.h5'}</td>
-                  <td>{model.feature_model_filename || 'feature_model.h5'}</td>
-                  <td>{(model.accuracy * 100).toFixed(2)}%</td>
-                  <td>{model.loss.toFixed(4)}</td>
+                  <td>{model.epochs}</td>
+                  <td>{formatMetric(model.accuracy)}</td>
+                  <td>{model.loss?.toFixed(4) || 'N/A'}</td>
+                  <td>{formatMetric(model.precision)}</td>
+                  <td>{formatMetric(model.recall)}</td>
+                  <td>{formatMetric(model.f1_score)}</td>
                   <td>{model.is_active ? 'Active' : 'Inactive'}</td>
                   <td>
                     <button

@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import '../../styles/sortfile.css'
 import { useNavigate, useLocation } from 'react-router-dom';
+import FolderUpload from '../../components/FolderUpload';
+import '../../styles/sortfile.css';
+
 export default function SortFile() {
   const navigate = useNavigate();
   const [isUploading, setIsUploading] = useState(false);
@@ -11,7 +13,7 @@ export default function SortFile() {
   const [error, setError] = useState(null);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [stats, setStats] = useState(null);
-  const [threshold, setThreshold] = useState(0.3); // Add threshold state
+  const [threshold, setThreshold] = useState(0.3);
   const formRef = useRef(null);
   const pollIntervalRef = useRef(null);
 
@@ -28,9 +30,8 @@ export default function SortFile() {
     };
   }, []);
 
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    setSelectedFiles(files);
+  const handleFolderSelect = (files) => {
+    setSelectedFiles(Array.from(files));
     setError(null);
     setDownloadUrl(null);
   };
@@ -169,27 +170,27 @@ export default function SortFile() {
         </div>
       </header>
 
-      <div class="icon-background">
-        <div class="bg-icon icon-1">👤</div>
-        <div class="bg-icon icon-2">📱</div>
-        <div class="bg-icon icon-3">💻</div>
-        <div class="bg-icon icon-4">📧</div>
-        <div class="bg-icon icon-5">🔑</div>
-        <div class="bg-icon icon-6">⚙️</div>
-        <div class="bg-icon icon-7">📊</div>
-        <div class="bg-icon icon-8">📈</div>
-        <div class="bg-icon icon-9">👑</div>
-        <div class="bg-icon icon-10">🌟</div>
-        <div class="bg-icon icon-11">🚀</div>
-        <div class="bg-icon icon-12">💡</div>
-        <div class="bg-icon icon-13">🎯</div>
-        <div class="bg-icon icon-14">⭐</div>
-        <div class="bg-icon icon-15">🔔</div>
-        <div class="bg-icon icon-16">📝</div>
-        <div class="bg-icon icon-17">🏆</div>
-        <div class="bg-icon icon-18">👍</div>
-        <div class="bg-icon icon-19">📂</div>
-        <div class="bg-icon icon-20">🔍</div>
+      <div className="icon-background">
+        <div className="bg-icon icon-1">👤</div>
+        <div className="bg-icon icon-2">📱</div>
+        <div className="bg-icon icon-3">💻</div>
+        <div className="bg-icon icon-4">📧</div>
+        <div className="bg-icon icon-5">🔑</div>
+        <div className="bg-icon icon-6">⚙️</div>
+        <div className="bg-icon icon-7">📊</div>
+        <div className="bg-icon icon-8">📈</div>
+        <div className="bg-icon icon-9">👑</div>
+        <div className="bg-icon icon-10">🌟</div>
+        <div className="bg-icon icon-11">🚀</div>
+        <div className="bg-icon icon-12">💡</div>
+        <div className="bg-icon icon-13">🎯</div>
+        <div className="bg-icon icon-14">⭐</div>
+        <div className="bg-icon icon-15">🔔</div>
+        <div className="bg-icon icon-16">📝</div>
+        <div className="bg-icon icon-17">🏆</div>
+        <div className="bg-icon icon-18">👍</div>
+        <div className="bg-icon icon-19">📂</div>
+        <div className="bg-icon icon-20">🔍</div>
       </div>
 
       <div 
@@ -203,14 +204,12 @@ export default function SortFile() {
         <form ref={formRef} onSubmit={handleSubmit} className="mb-6">
           <div className="mb-4">
             <label className="block mb-2 font-medium">Upload X-ray Images Folder</label>
-            <input 
-              type="file" 
-              webkitdirectory="true"
-              directory="true"
-              multiple
-              onChange={handleFileChange}
-              className="block w-full border border-gray-300 rounded px-3 py-2"
+            
+            <FolderUpload 
+              onFolderSelect={handleFolderSelect} 
+              isDisabled={isUploading || isProcessing} 
             />
+            
             {selectedFiles.length > 0 && (
               <div className="mt-2 text-sm text-gray-600">
                 {selectedFiles.length} files selected
@@ -231,6 +230,7 @@ export default function SortFile() {
               value={threshold}
               onChange={(e) => setThreshold(parseFloat(e.target.value))}
               className="w-full"
+              disabled={isUploading || isProcessing}
             />
             <div className="flex justify-between text-xs text-gray-500">
               <span>More Sensitive (0.1)</span>

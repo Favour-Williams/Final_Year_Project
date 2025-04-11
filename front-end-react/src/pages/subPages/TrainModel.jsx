@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
 import '../../styles/TrainModel.css'
+import FolderUpload from '../../components/FolderUpload';
 import { useNavigate } from "react-router-dom";
 import {
   Chart as ChartJS,
@@ -40,8 +41,8 @@ export default function TrainModel() {
     metrics: null
   });
 
-  const handleFileChange = (event) => {
-    setSelectedDataset(event.target.files);
+  const handleFolderSelect = (files) => {
+    setSelectedDataset(files);
   };
 
   const uploadFiles = async (files, baseFolder) => {
@@ -333,14 +334,9 @@ export default function TrainModel() {
         <div className="form-section">
           <div className="input-group">
             <label htmlFor="dataset">Select Dataset Folder:</label>
-            <input 
-              type="file" 
-              id="dataset" 
-              onChange={handleFileChange} 
-              webkitdirectory="true" 
-              directory="true" 
-              multiple 
-              disabled={isTraining}
+            <FolderUpload 
+              onFolderSelect={handleFolderSelect}
+              isDisabled={isTraining}
             />
             <p className="help-text">
               Select a folder containing your dataset organized as:

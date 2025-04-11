@@ -643,3 +643,82 @@
     box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
   }
 }
+
+/* Add these styles to your css file */
+
+.folder-upload-container {
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.folder-upload-area {
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  padding: 30px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background-color: #f9f9f9;
+  position: relative;
+}
+
+.folder-upload-area:hover {
+  border-color: #0077CC;
+  background-color: #f0f7ff;
+}
+
+.folder-upload-area.dragging {
+  border-color: #0077CC;
+  background-color: #e6f3ff;
+}
+
+.folder-upload-area.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: #f0f0f0;
+  border-color: #ddd;
+}
+
+.folder-upload-area.disabled:hover {
+  border-color: #ddd;
+  background-color: #f0f0f0;
+}
+
+.folder-icon {
+  margin-bottom: 15px;
+  color: #777;
+}
+
+.upload-text {
+  font-size: 18px;
+  color: #444;
+  margin-bottom: 8px;
+}
+
+.upload-subtext {
+  font-size: 14px;
+  color: #777;
+}
+
+.folder-selected {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+}
+
+.folder-info {
+  text-align: left;
+}
+
+.folder-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.file-count {
+  font-size: 14px;
+  color: #666;
+}

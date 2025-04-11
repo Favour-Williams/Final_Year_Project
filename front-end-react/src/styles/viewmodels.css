@@ -142,12 +142,12 @@
   }
   
   /* Status indicators */
-  .models-table td:nth-child(7) {
+  .models-table td:nth-child(9) {
     position: relative;
     padding-left: 1.75rem;
   }
   
-  .models-table td:nth-child(7)::before {
+  .models-table td:nth-child(9)::before {
     content: '';
     position: absolute;
     left: 1rem;
@@ -159,7 +159,7 @@
     background-color: var(--text-light);
   }
   
-  .active-model td:nth-child(7)::before {
+  .active-model td:nth-child(9)::before {
     background-color: var(--success);
   }
   
