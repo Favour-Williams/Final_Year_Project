@@ -103,17 +103,17 @@ class ModelTraining(db.Model):
     recall = db.Column(db.Float)
     f1_score = db.Column(db.Float)
     training_time = db.Column(db.Float)
-    model_path = db.Column(db.String(255))  # Keep for backward compatibility
-    main_model_blob = db.Column(db.LargeBinary)  # New column for main model blob
-    feature_model_blob = db.Column(db.LargeBinary)  # New column for feature model blob
+    model_path = db.Column(db.String(255))  
+    main_model_blob = db.Column(db.LargeBinary)  
+    feature_model_blob = db.Column(db.LargeBinary)
     is_active = db.Column(db.Boolean, default=False)
-    accuracy_history = db.Column(db.Text)  # Stored as JSON string
-    loss_history = db.Column(db.Text)  # Stored as JSON string
-    val_accuracy_history = db.Column(db.Text)  # Stored as JSON string
-    val_loss_history = db.Column(db.Text)  # Stored as JSON string
-    precision_history = db.Column(db.Text)  # Stored as JSON string
-    recall_history = db.Column(db.Text)  # Stored as JSON string
-    f1_history = db.Column(db.Text)  # Stored as JSON string
+    accuracy_history = db.Column(db.Text)  
+    loss_history = db.Column(db.Text)  
+    val_accuracy_history = db.Column(db.Text)  
+    val_loss_history = db.Column(db.Text)  
+    precision_history = db.Column(db.Text) 
+    recall_history = db.Column(db.Text)  
+    f1_history = db.Column(db.Text)  
     
     def to_dict(self):
         return {
