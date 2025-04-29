@@ -90,7 +90,7 @@ yarn install
 #### **🔙 Start the Flask Backend**  
 *(From `/BackEndFlask`)*  
 ```bash
-python app.py
+python run.py
 ```
 - **Runs at:** `http://localhost:5000`  
 
