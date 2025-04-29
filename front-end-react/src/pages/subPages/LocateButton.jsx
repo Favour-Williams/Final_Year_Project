@@ -19,8 +19,8 @@ export default function LocateButton({ imageFile, predictionResult, doctorId}) {
     try {
         const formData = new FormData();
         formData.append('xray_image', imageFile);
-        formData.append('doctor_id', doctorId);  // Add doctor ID
-        formData.append('prediction_id', predictionResult.prediction_id);  // Add prediction ID
+        formData.append('doctor_id', doctorId); 
+        formData.append('prediction_id', predictionResult.prediction_id);  
 
         const response = await fetch('http://127.0.0.1:5000/locate', {
             method: 'POST',

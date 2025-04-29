@@ -13,7 +13,7 @@ export default function FolderUpload({ onFolderSelect, isDisabled = false }) {
       e.stopPropagation();
     };
 
-    // Add event listeners to prevent default browser behavior
+    // Add event listeners 
     const dropArea = dropAreaRef.current;
     if (dropArea) {
       ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -57,7 +57,7 @@ export default function FolderUpload({ onFolderSelect, isDisabled = false }) {
           return;
         }
       }
-      // No folder found, show error or message
+      // No folder found, show error
       alert("Please drop a folder, not individual files");
     }
   };
@@ -67,7 +67,7 @@ export default function FolderUpload({ onFolderSelect, isDisabled = false }) {
     
     const files = e.target.files;
     if (files && files.length > 0) {
-      // Get folder name from the first file's path
+      // Get folder name from the first files path
       const folderPath = files[0].webkitRelativePath;
       const folder = folderPath.split('/')[0];
       
@@ -82,18 +82,17 @@ export default function FolderUpload({ onFolderSelect, isDisabled = false }) {
   // Function to recursively scan a dropped folder
   const traverseFileTree = (item, path = "") => {
     if (item.isFile) {
-      // This is a file, add it to our virtual input
+      // This is a file, add it to the virtual input
       item.file(file => {
         console.log("File:", file);
-        // We can't directly add to input, but we can pass to parent
+       
       });
     } else if (item.isDirectory) {
       // If this is the first directory, set the folder name
       if (path === "") {
         setFolderName(item.name);
         
-        // Trigger the file input to handle the folder selection properly
-        // This is a workaround since we can't programmatically build a FileList
+    
         alert(`Please select the "${item.name}" folder using the file dialog`);
         fileInputRef.current.click();
       }

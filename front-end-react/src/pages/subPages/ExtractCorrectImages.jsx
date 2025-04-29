@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from "react-router-dom";
-import './extract-images.css';
+import '../../styles/extract-images.css'
 
 export default function ExtractCorrectImages() {
   const [corrections, setCorrections] = useState([]);

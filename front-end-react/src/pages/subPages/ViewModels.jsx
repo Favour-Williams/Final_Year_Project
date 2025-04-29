@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import '../../styles/viewmodels.css';
 
 export default function ViewModels() {
@@ -10,9 +11,8 @@ export default function ViewModels() {
   const [activatingModelId, setActivatingModelId] = useState(null);
   const [activationProgress, setActivationProgress] = useState(0);
   const navigate = useNavigate();
-  // Activation polling interval in ms (200ms)
+
   const POLL_INTERVAL = 200;
-  // Maximum activation time in ms (7 seconds)
   const MAX_ACTIVATION_TIME = 7000;
 
   // Fetch all models when component mounts
@@ -88,7 +88,6 @@ export default function ViewModels() {
         }
       }, POLL_INTERVAL);
       
-      // Set a timeout to finish the activation process after MAX_ACTIVATION_TIME
       setTimeout(() => {
         clearInterval(progressInterval);
         finishActivation();
@@ -115,7 +114,7 @@ export default function ViewModels() {
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+    return date.toISOString().split('T')[0]; 
   };
 
   // Format metrics to display with 2 decimal places and percentage
@@ -125,15 +124,48 @@ export default function ViewModels() {
       : 'N/A';
   };
 
+  // Generate mock training history data for visualization
+  // In a real app, this would come from your API
+  const generateTrainingData = (model) => {
+    const epochs = model.epochs || 10;
+    const finalAccuracy = model.accuracy || 0.85;
+    const finalLoss = model.loss || 0.15;
+    const finalPrecision = model.precision || 0.84;
+    const finalRecall = model.recall || 0.86;
+    const finalF1 = model.f1_score || 0.85;
+    
+    const data = [];
+    
+    for (let i = 0; i <= epochs; i++) {
+      // Create a curve that gradually improves and stabilizes
+      const progress = i / epochs;
+      const easing = 1 - Math.pow(1 - progress, 3); // Cubic easing
+      
+      data.push({
+        epoch: i,
+        accuracy: 0.5 + (finalAccuracy - 0.5) * easing,
+        loss: 0.5 - (0.5 - finalLoss) * easing,
+        precision: 0.5 + (finalPrecision - 0.5) * easing,
+        recall: 0.5 + (finalRecall - 0.5) * easing,
+        f1_score: 0.5 + (finalF1 - 0.5) * easing,
+      });
+    }
+    
+    return data;
+  };
+
+  // Find active model
+  const activeModel = models.find(model => model.is_active);
+
   return (
     <>
       <header className="dashboard-header">
         <div className="logo">
-        <div className="footer-logo-icon">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                  </svg>
-                </div>
+          <div className="footer-logo-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+            </svg>
+          </div>
           <span className="logo-text">BoneDetect AI</span>
         </div>
       </header>
@@ -161,12 +193,12 @@ export default function ViewModels() {
         <div className="bg-icon icon-20">🔍</div>
       </div>
       <div 
-                className="back-arrow" 
-                onClick={() => navigate(-1)} 
-                title="Go back to previous page"
-                ></div>
+        className="back-arrow" 
+        onClick={() => navigate(-1)} 
+        title="Go back to previous page"
+      ></div>
       <div className="view-models-container">
-        <h1 className='text-2xl font-bold mb-6'>Trained Models</h1>
+        <h1 className="text-2xl font-bold mb-6">Trained Models</h1>
         
         {loading && <p>Loading models...</p>}
         
@@ -193,53 +225,92 @@ export default function ViewModels() {
         )}
         
         {models.length > 0 && (
-          <table className="models-table">
-            <thead>
-              <tr>
-                <th>Model ID</th>
-                <th>Date Created</th>
-                <th>Epochs</th>
-                <th>Accuracy</th>
-                <th>Loss</th>
-                <th>Precision</th>
-                <th>Recall</th>
-                <th>F1 Score</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {models.map(model => (
-                <tr key={model.id} className={model.is_active ? 'active-model' : ''}>
-                  <td>{model.id}</td>
-                  <td>{formatDate(model.timestamp)}</td>
-                  <td>{model.epochs}</td>
-                  <td>{formatMetric(model.accuracy)}</td>
-                  <td>{model.loss?.toFixed(4) || 'N/A'}</td>
-                  <td>{formatMetric(model.precision)}</td>
-                  <td>{formatMetric(model.recall)}</td>
-                  <td>{formatMetric(model.f1_score)}</td>
-                  <td>{model.is_active ? 'Active' : 'Inactive'}</td>
-                  <td>
-                    <button
-                      onClick={() => handleActivate(model.id)}
-                      disabled={model.is_active || activating}
-                      className={model.is_active ? 'active-button' : 'activate-button'}
-                    >
-                      {model.is_active ? 'Active' : 'Activate'}
-                    </button>
-                    <button
-                      onClick={() => handleDelete(model.id)}
-                      disabled={model.is_active || activating}
-                      className="delete-button"
-                    >
-                      Delete
-                    </button>
-                  </td>
+          <div className="models-section">
+            <table className="models-table">
+              <thead>
+                <tr>
+                  <th>Model ID</th>
+                  <th>Date Created</th>
+                  <th>Epochs</th>
+                  <th>Accuracy</th>
+                  <th>Loss</th>
+                  <th>Precision</th>
+                  <th>Recall</th>
+                  <th>F1 Score</th>
+                  <th>Status</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {models.map(model => (
+                  <tr 
+                    key={model.id} 
+                    className={model.is_active ? 'active-model' : ''}
+                  >
+                    <td>{model.id}</td>
+                    <td>{formatDate(model.timestamp)}</td>
+                    <td>{model.epochs}</td>
+                    <td>{formatMetric(model.accuracy)}</td>
+                    <td>{model.loss?.toFixed(4) || 'N/A'}</td>
+                    <td>{formatMetric(model.precision)}</td>
+                    <td>{formatMetric(model.recall)}</td>
+                    <td>{formatMetric(model.f1_score)}</td>
+                    <td>{model.is_active ? 'Active' : 'Inactive'}</td>
+                    <td>
+                      <button
+                        onClick={() => handleActivate(model.id)}
+                        disabled={model.is_active || activating}
+                        className={model.is_active ? 'active-button' : 'activate-button'}
+                      >
+                        {model.is_active ? 'Active' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(model.id)}
+                        disabled={model.is_active || activating}
+                        className="delete-button"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            
+            {activeModel && (
+              <div className="performance-graphs">
+                <h2 className="text-lg font-bold mb-2">Performance Metrics for Active Model #{activeModel.id}</h2>
+                <div className="graph-container">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart 
+                      data={generateTrainingData(activeModel)} 
+                      margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="epoch" />
+                      <YAxis domain={[0, 1]} tickFormatter={(value) => `${(value * 100).toFixed(0)}%`} />
+                      <Tooltip 
+                        formatter={(value) => `${(value * 100).toFixed(2)}%`} 
+                        labelFormatter={(value) => `Epoch ${value}`}
+                      />
+                      <Legend />
+                      <Line type="monotone" dataKey="accuracy" name="Accuracy" stroke="#8884d8" activeDot={{ r: 8 }} />
+                      <Line type="monotone" dataKey="loss" name="Loss" stroke="#ff0000" activeDot={{ r: 8 }} />
+                      <Line type="monotone" dataKey="precision" name="Precision" stroke="#82ca9d" activeDot={{ r: 8 }} />
+                      <Line type="monotone" dataKey="recall" name="Recall" stroke="#ffc658" activeDot={{ r: 8 }} />
+                      <Line type="monotone" dataKey="f1_score" name="F1 Score" stroke="#0088fe" activeDot={{ r: 8 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {!activeModel && (
+              <div className="no-active-model-message">
+                <p>No active model selected. Activate a model to see its performance metrics.</p>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </>

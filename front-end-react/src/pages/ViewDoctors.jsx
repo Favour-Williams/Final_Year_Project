@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import './ViewDoctors.css';
+import '../styles/ViewDoctors.css';
 import { useNavigate } from "react-router-dom";
 
 export default function ViewDoctors() {

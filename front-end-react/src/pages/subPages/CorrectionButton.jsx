@@ -68,7 +68,6 @@ const CorrectionButton = ({ imageData, prediction, doctorId }) => {
       height: y - startPoint.y
     });
   };
-
   const handleMouseUp = () => {
     if (isDrawing && currentRectangle && correctionType === "fractured") {
       setRectangles([...rectangles, currentRectangle]);
