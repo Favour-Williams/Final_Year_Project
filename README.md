@@ -1,4 +1,4 @@
-Here's a more presentable and organized installation guide with icons and additional details:
+
 
 ---
 
