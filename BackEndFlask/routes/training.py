@@ -33,13 +33,10 @@ def train_model():
         dataset_path = request.form.get('dataset_path')
         epochs = int(request.form.get('epochs', 10))
         batch_size = int(request.form.get('batch_size', 32))
-        
-        # Get the app reference before creating the thread
-        app = current_app._get_current_object()
-        
+       
         training_thread = threading.Thread(
             target=run_training_process,
-            args=(app, dataset_path, epochs, batch_size)
+            args=(dataset_path, epochs, batch_size)
         )
         training_thread.daemon = True
         training_thread.start()
@@ -126,14 +123,10 @@ def activate_model(model_id):
         if not (has_blob or has_files):
             return jsonify({'error': f'Model data not found for model {model_id}'}), 404
         
-        # Get a reference to the app before creating the thread
-        app = current_app._get_current_object()
-        
         # Use a separate thread to load the model to avoid blocking
-        def load_model_in_background(app):
-            # Use the app reference passed to this function
-            with app.app_context():
-                # Deactivate all models
+        def load_model_in_background():
+            # Deactivate all models
+            with current_app.app_context():
                 ModelTraining.query.update({ModelTraining.is_active: False})
                 
                 # Activate the selected model
@@ -147,8 +140,8 @@ def activate_model(model_id):
                 
                 print(f"Background model loading completed: {'success' if success else 'failed'}")
         
-        # Start the background thread with the app as an argument
-        thread = threading.Thread(target=load_model_in_background, args=(app,))
+        # Start the background thread
+        thread = threading.Thread(target=load_model_in_background)
         thread.daemon = True
         thread.start()
         
@@ -160,7 +153,7 @@ def activate_model(model_id):
         return jsonify({'error': str(e)}), 500
 
 
-def run_training_process(app, dataset_path, epochs, batch_size):
+def run_training_process(dataset_path, epochs, batch_size):
     """Run the training process and store results in the database"""
     global training_progress
     
@@ -170,7 +163,7 @@ def run_training_process(app, dataset_path, epochs, batch_size):
         'error': None
     }
     
-    with app.app_context():
+    with current_app.app_context():
         try:
             # Setup full paths
             UPLOAD_FOLDER = current_app.config['UPLOAD_FOLDER']
