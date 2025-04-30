@@ -193,10 +193,13 @@ def upload_xrays():
             "file_count": len(file_paths)
         }
         
+        # Get the current app context for the background thread
+        app = current_app._get_current_object()
+        
         # Start processing thread
         processing_thread = threading.Thread(
             target=process_files,
-            args=(session_id, file_paths, threshold)
+            args=(app, session_id, file_paths, threshold)
         )
         processing_thread.daemon = True
         processing_thread.start()
@@ -351,24 +354,34 @@ def batch_predict(image_paths, model, batch_size=16, threshold=0.5):
     return results
 
 
-def process_files(session_id, file_paths, threshold=0.3):
+def process_files(app, session_id, file_paths, threshold=0.3):
+    """
+    Process uploaded X-ray files with the active model.
+    
+    Args:
+        app: Flask application object
+        session_id: Unique session identifier
+        file_paths: List of paths to uploaded files
+        threshold: Confidence threshold for fracture detection
+    """
     try:
-        # Create session folders
-        RESULTS_FOLDER = current_app.config['RESULTS_FOLDER']
-        session_folder = os.path.join(RESULTS_FOLDER, session_id)
-        fracture_folder = os.path.join(session_folder, "fractured")
-        no_fracture_folder = os.path.join(session_folder, "non_fractured")
-        location_folder = os.path.join(session_folder, "locationed")
-        os.makedirs(fracture_folder, exist_ok=True)
-        os.makedirs(no_fracture_folder, exist_ok=True)
-        os.makedirs(location_folder, exist_ok=True)
-        
-        # Get model and track which model was used
-        model, feature_model = load_active_model()
-        
-        # Get model info for the stats
-        model_info = {"model_id": None, "model_accuracy": None}
-        with current_app.app_context():
+        # Use the app context in the background thread
+        with app.app_context():
+            # Create session folders
+            RESULTS_FOLDER = app.config['RESULTS_FOLDER']
+            session_folder = os.path.join(RESULTS_FOLDER, session_id)
+            fracture_folder = os.path.join(session_folder, "fractured")
+            no_fracture_folder = os.path.join(session_folder, "non_fractured")
+            location_folder = os.path.join(session_folder, "locationed")
+            os.makedirs(fracture_folder, exist_ok=True)
+            os.makedirs(no_fracture_folder, exist_ok=True)
+            os.makedirs(location_folder, exist_ok=True)
+            
+            # Get model and track which model was used
+            model, feature_model = load_active_model()
+            
+            # Get model info for the stats
+            model_info = {"model_id": None, "model_accuracy": None}
             from models.training import ModelTraining
             active_model = ModelTraining.query.filter_by(is_active=True).first()
             if active_model:
@@ -378,100 +391,100 @@ def process_files(session_id, file_paths, threshold=0.3):
                     "model_f1": round(active_model.f1_score, 4) if active_model.f1_score else None,
                     "model_timestamp": active_model.timestamp.strftime('%Y-%m-%d %H:%M:%S')
                 }
-        
-        # Track statistics
-        stats = {
-            "fracture_count": 0,
-            "no_fracture_count": 0,
-            "located_count": 0,  # Track located fractures
-            "total": len(file_paths),
-            "start_time": time.time(),
-            "model": model_info,
-            "threshold": threshold
-        }
-        
-        # Determine optimal batch size and number of workers
-        total_files = len(file_paths)
-        batch_size = min(16, max(1, math.ceil(total_files / 10))) 
-        max_workers = min(os.cpu_count() or 4, 8)  
-        
-        # Function to process a batch of files
-        def process_batch(batch_paths):
-            results = batch_predict(batch_paths, model, batch_size=len(batch_paths), threshold=threshold)
-            batch_results = []
             
-            for path, img, category, confidence in results:
-                filename = os.path.basename(path)
-                if category == "fracture":
-                    # Save original image in fracture folder
-                    save_path = os.path.join(fracture_folder, filename)
-                    cv2.imwrite(save_path, img)
-                    
-                    # Process image to locate fracture
-                    try:
-                        located_img = locate_fracture_in_image(img, model, feature_model)
-                        location_save_path = os.path.join(location_folder, filename)
-                        cv2.imwrite(location_save_path, located_img)
-                        batch_results.append((category, save_path, True))  # True indicates location was processed
-                    except Exception as e:
-                        print(f"Error locating fracture in {filename}: {str(e)}")
-                        batch_results.append((category, save_path, False))  # False indicates location failed
-                else:
-                    save_path = os.path.join(no_fracture_folder, filename)
-                    cv2.imwrite(save_path, img)
-                    batch_results.append((category, save_path, None))  # None indicates no location needed
+            # Track statistics
+            stats = {
+                "fracture_count": 0,
+                "no_fracture_count": 0,
+                "located_count": 0,  # Track located fractures
+                "total": len(file_paths),
+                "start_time": time.time(),
+                "model": model_info,
+                "threshold": threshold
+            }
             
-            return batch_results
-        
-        # Split files into batches for parallel processing
-        file_batches = [file_paths[i:i+batch_size] for i in range(0, len(file_paths), batch_size)]
-        processed_files = 0
-        
-        # Process batches in parallel
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_batch = {executor.submit(process_batch, batch): i for i, batch in enumerate(file_batches)}
+            # Determine optimal batch size and number of workers
+            total_files = len(file_paths)
+            batch_size = min(16, max(1, math.ceil(total_files / 10))) 
+            max_workers = min(os.cpu_count() or 4, 8)  
             
-            for future in concurrent.futures.as_completed(future_to_batch):
-                batch_results = future.result()
+            # Function to process a batch of files
+            def process_batch(batch_paths):
+                results = batch_predict(batch_paths, model, batch_size=len(batch_paths), threshold=threshold)
+                batch_results = []
                 
-                # Update statistics
-                for category, _, location_processed in batch_results:
+                for path, img, category, confidence in results:
+                    filename = os.path.basename(path)
                     if category == "fracture":
-                        stats["fracture_count"] += 1
-                        if location_processed:
-                            stats["located_count"] += 1
+                        # Save original image in fracture folder
+                        save_path = os.path.join(fracture_folder, filename)
+                        cv2.imwrite(save_path, img)
+                        
+                        # Process image to locate fracture
+                        try:
+                            located_img = locate_fracture_in_image(img, model, feature_model)
+                            location_save_path = os.path.join(location_folder, filename)
+                            cv2.imwrite(location_save_path, located_img)
+                            batch_results.append((category, save_path, True))  # True indicates location was processed
+                        except Exception as e:
+                            print(f"Error locating fracture in {filename}: {str(e)}")
+                            batch_results.append((category, save_path, False))  # False indicates location failed
                     else:
-                        stats["no_fracture_count"] += 1
+                        save_path = os.path.join(no_fracture_folder, filename)
+                        cv2.imwrite(save_path, img)
+                        batch_results.append((category, save_path, None))  # None indicates no location needed
                 
-                # Update progress
-                processed_files += len(batch_results)
-                progress = int((processed_files / total_files) * 100)
-                processing_sessions[session_id]["progress"] = progress
-        
-        # Create zip file
-        zip_path = os.path.join(RESULTS_FOLDER, f"{session_id}.zip")
-        with zipfile.ZipFile(zip_path, 'w') as zipf:
-            for root, _, files in os.walk(session_folder):
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    arcname = os.path.relpath(file_path, session_folder)
-                    zipf.write(file_path, arcname)
-        
-        # Calculate processing time
-        stats["processing_time"] = time.time() - stats["start_time"]
-        
-        # Update session status
-        processing_sessions[session_id].update({
-            "status": "completed",
-            "progress": 100,
-            "zip_path": zip_path,
-            "stats": stats
-        })
-        
-        # Clean TensorFlow memory
-        import gc
-        gc.collect()
-        tf.keras.backend.clear_session()
+                return batch_results
+            
+            # Split files into batches for parallel processing
+            file_batches = [file_paths[i:i+batch_size] for i in range(0, len(file_paths), batch_size)]
+            processed_files = 0
+            
+            # Process batches in parallel
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_to_batch = {executor.submit(process_batch, batch): i for i, batch in enumerate(file_batches)}
+                
+                for future in concurrent.futures.as_completed(future_to_batch):
+                    batch_results = future.result()
+                    
+                    # Update statistics
+                    for category, _, location_processed in batch_results:
+                        if category == "fracture":
+                            stats["fracture_count"] += 1
+                            if location_processed:
+                                stats["located_count"] += 1
+                        else:
+                            stats["no_fracture_count"] += 1
+                    
+                    # Update progress
+                    processed_files += len(batch_results)
+                    progress = int((processed_files / total_files) * 100)
+                    processing_sessions[session_id]["progress"] = progress
+            
+            # Create zip file
+            zip_path = os.path.join(RESULTS_FOLDER, f"{session_id}.zip")
+            with zipfile.ZipFile(zip_path, 'w') as zipf:
+                for root, _, files in os.walk(session_folder):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        arcname = os.path.relpath(file_path, session_folder)
+                        zipf.write(file_path, arcname)
+            
+            # Calculate processing time
+            stats["processing_time"] = time.time() - stats["start_time"]
+            
+            # Update session status
+            processing_sessions[session_id].update({
+                "status": "completed",
+                "progress": 100,
+                "zip_path": zip_path,
+                "stats": stats
+            })
+            
+            # Clean TensorFlow memory
+            import gc
+            gc.collect()
+            tf.keras.backend.clear_session()
         
     except Exception as e:
         traceback_str = traceback.format_exc()
@@ -491,39 +504,50 @@ def process_files(session_id, file_paths, threshold=0.3):
 
 
 # Start cleanup thread for old sessions
-def cleanup_old_sessions(max_age_hours=24):
-    current_time = datetime.now()
-    sessions_to_remove = []
+def cleanup_old_sessions(app, max_age_hours=24):
+    """
+    Clean up old processing sessions and their files.
     
-    for session_id, session in processing_sessions.items():
-        try:
-            created_at = datetime.fromisoformat(session['created_at'])
-            age_hours = (current_time - created_at).total_seconds() / 3600
-            
-            if age_hours > max_age_hours:
-                # Clean up files
-                if 'zip_path' in session and os.path.exists(session['zip_path']):
-                    os.remove(session['zip_path'])
+    Args:
+        app: Flask application object
+        max_age_hours: Maximum age of sessions to keep in hours
+    """
+    with app.app_context():
+        current_time = datetime.now()
+        sessions_to_remove = []
+        
+        for session_id, session in processing_sessions.items():
+            try:
+                created_at = datetime.fromisoformat(session['created_at'])
+                age_hours = (current_time - created_at).total_seconds() / 3600
                 
-                RESULTS_FOLDER = current_app.config['RESULTS_FOLDER']
-                session_folder = os.path.join(RESULTS_FOLDER, session_id)
-                if os.path.exists(session_folder):
-                    shutil.rmtree(session_folder)
-                
-                sessions_to_remove.append(session_id)
-        except Exception as e:
-            print(f"Error cleaning up session {session_id}: {str(e)}")
-    
-    # Remove old sessions
-    for session_id in sessions_to_remove:
-        del processing_sessions[session_id]
+                if age_hours > max_age_hours:
+                    # Clean up files
+                    if 'zip_path' in session and os.path.exists(session['zip_path']):
+                        os.remove(session['zip_path'])
+                    
+                    RESULTS_FOLDER = app.config['RESULTS_FOLDER']
+                    session_folder = os.path.join(RESULTS_FOLDER, session_id)
+                    if os.path.exists(session_folder):
+                        shutil.rmtree(session_folder)
+                    
+                    sessions_to_remove.append(session_id)
+            except Exception as e:
+                print(f"Error cleaning up session {session_id}: {str(e)}")
+        
+        # Remove old sessions
+        for session_id in sessions_to_remove:
+            del processing_sessions[session_id]
 
 
 def start_cleanup_thread():
+    """Start a background thread to periodically clean up old sessions."""
+    app = current_app._get_current_object()
+    
     def cleanup_thread():
         while True:
             time.sleep(3600)  # Run every hour
-            cleanup_old_sessions()
+            cleanup_old_sessions(app)
     
     # Start cleanup thread
     thread = threading.Thread(target=cleanup_thread)
@@ -531,5 +555,22 @@ def start_cleanup_thread():
     thread.start()
 
 
-# Initialize cleanup thread
-start_cleanup_thread()
+# Initialize cleanup thread when the blueprint is registered
+@dataset_routes.record
+def on_blueprint_registered(state):
+    """
+    Called when the blueprint is registered with the application.
+    This is the right place to initialize the cleanup thread.
+    """
+    app = state.app
+    
+    def cleanup_thread():
+        while True:
+            time.sleep(3600)  # Run every hour
+            with app.app_context():
+                cleanup_old_sessions(app)
+    
+    # Start cleanup thread
+    thread = threading.Thread(target=cleanup_thread)
+    thread.daemon = True
+    thread.start()

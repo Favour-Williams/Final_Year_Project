@@ -1,16 +1,10 @@
-import time
 import tensorflow as tf
 import numpy as np
 import cv2
 import os
-from tensorflow.keras import layers, models, Model
+from tensorflow.keras import layers, Model
 from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from sklearn.metrics import classification_report, roc_auc_score
-
-# /////////////////////////////////////////////////////////////////////////////////////////
-# /////////////////////////////////////////////////////////////////////////////////////////
-
 
 def load_data(data_dir):
     """
@@ -34,10 +28,6 @@ def load_data(data_dir):
                 labels.append(label)
 
     return np.array(images), np.array(labels)
-
-
-# /////////////////////////////////////////////////////////////////////////////////////////
-# /////////////////////////////////////////////////////////////////////////////////////////
 
 def build_model(input_shape=(224, 224, 3)):
     """
@@ -81,10 +71,6 @@ def build_model(input_shape=(224, 224, 3)):
     
     return model, feature_model
 
-
-# /////////////////////////////////////////////////////////////////////////////////////////
-# /////////////////////////////////////////////////////////////////////////////////////////
-
 def train_cnn(model, train_dataset, epochs, batch_size, callbacks=None):
     images, labels = train_dataset
     
@@ -107,37 +93,30 @@ def train_cnn(model, train_dataset, epochs, batch_size, callbacks=None):
         datagen.flow(images, labels, batch_size=batch_size), 
         epochs=epochs,
         steps_per_epoch=len(images) // batch_size,
-        callbacks=callbacks  # Add the callbacks parameter here
+        callbacks=callbacks 
     )
     
-    # After initial training, fine-tune the model by unfreezing some layers
     if epochs >= 5:
         print("Fine-tuning the model...")
-        # Unfreeze the last few layers of the MobileNetV2 model
-        base_model = model.layers[1]  # Get the base model layer
+        base_model = model.layers[1]  
         for layer in base_model.layers[-20:]:
             layer.trainable = True
         
-        # Recompile with a lower learning rate
         model.compile(
             optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5),
             loss='binary_crossentropy',
             metrics=['accuracy']
         )
         
-        # Continue training with a lower learning rate
+ 
         model.fit(
             datagen.flow(images, labels, batch_size=batch_size),
             epochs=3,
             steps_per_epoch=len(images) // batch_size,
-            callbacks=callbacks  # Add the callbacks parameter here too
+            callbacks=callbacks 
         )
     
     return history
-
-# /////////////////////////////////////////////////////////////////////////////////////////
-# /////////////////////////////////////////////////////////////////////////////////////////
-
 
 def evaluate_cnn(model, test_dataset):
     images, labels = test_dataset
@@ -169,3 +148,4 @@ def generate_heatmap(img, feature_model, last_conv_layer_weights):
     heatmap = cv2.resize(heatmap, (img.shape[2], img.shape[1]))
     
     return heatmap
+
